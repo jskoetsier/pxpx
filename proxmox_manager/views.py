@@ -1,0 +1,235 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db.models import Avg, Count, Q, Sum
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import MigrationForm, SnapshotForm, VMSearchForm
+from .models import AuditLog, Node, ProxmoxCluster, VirtualMachine
+from .tasks import create_snapshot, migrate_vm_task, sync_cluster_data, vm_power_action
+
+
+@login_required
+def dashboard(request):
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    vms = VirtualMachine.objects.all()
+    recent_logs = AuditLog.objects.select_related("user", "vm", "cluster")[:10]
+
+    total_vms = vms.count()
+    running_vms = vms.filter(status="running").count()
+    stopped_vms = vms.filter(status="stopped").count()
+
+    total_nodes = nodes.count()
+    online_nodes = nodes.filter(status="online").count()
+
+    avg_cpu = nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0
+    avg_ram = nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0
+
+    context = {
+        "clusters": clusters,
+        "nodes": nodes,
+        "total_vms": total_vms,
+        "running_vms": running_vms,
+        "stopped_vms": stopped_vms,
+        "total_nodes": total_nodes,
+        "online_nodes": online_nodes,
+        "avg_cpu": round(avg_cpu, 2),
+        "avg_ram": round(avg_ram, 2),
+        "recent_logs": recent_logs,
+    }
+
+    return render(request, "proxmox_manager/dashboard.html", context)
+
+
+@login_required
+def vm_list(request):
+    vms = VirtualMachine.objects.select_related("node", "node__cluster").all()
+
+    form = VMSearchForm(request.GET or None)
+
+    if form.is_valid():
+        search = form.cleaned_data.get("search")
+        cluster = form.cleaned_data.get("cluster")
+        status = form.cleaned_data.get("status")
+        vm_type = form.cleaned_data.get("vm_type")
+
+        if search:
+            vms = vms.filter(Q(name__icontains=search) | Q(vmid__icontains=search))
+
+        if cluster:
+            vms = vms.filter(node__cluster=cluster)
+
+        if status:
+            vms = vms.filter(status=status)
+
+        if vm_type:
+            vms = vms.filter(vm_type=vm_type)
+
+    context = {
+        "vms": vms,
+        "form": form,
+    }
+
+    return render(request, "proxmox_manager/vm_list.html", context)
+
+
+@login_required
+def vm_detail(request, vm_id):
+    vm = get_object_or_404(VirtualMachine, id=vm_id)
+
+    available_nodes = Node.objects.filter(
+        cluster=vm.node.cluster, status="online"
+    ).exclude(id=vm.node.id)
+
+    context = {
+        "vm": vm,
+        "available_nodes": available_nodes,
+    }
+
+    return render(request, "proxmox_manager/vm_detail.html", context)
+
+
+@login_required
+def vm_power_control(request, vm_id, action):
+    vm = get_object_or_404(VirtualMachine, id=vm_id)
+
+    if action not in ["start", "stop", "reboot", "shutdown"]:
+        messages.error(request, "Invalid action")
+        return redirect("vm_list")
+
+    vm_power_action.delay(vm.id, action, request.user.id)
+    messages.success(request, f"{action.capitalize()} action initiated for {vm.name}")
+
+    return redirect("vm_detail", vm_id=vm_id)
+
+
+@login_required
+def migrate_vm(request, vm_id):
+    vm = get_object_or_404(VirtualMachine, id=vm_id)
+
+    if request.method == "POST":
+        form = MigrationForm(request.POST, vm=vm)
+        if form.is_valid():
+            target_node = form.cleaned_data["target_node"]
+            online = form.cleaned_data["online"]
+
+            migrate_vm_task.delay(vm.id, target_node.id, request.user.id, online)
+            messages.success(
+                request,
+                f"Migration of {vm.name} to {target_node.name} has been initiated",
+            )
+            return redirect("vm_detail", vm_id=vm_id)
+    else:
+        form = MigrationForm(vm=vm)
+
+    context = {
+        "vm": vm,
+        "form": form,
+    }
+
+    return render(request, "proxmox_manager/migrate_vm.html", context)
+
+
+@login_required
+def create_vm_snapshot(request, vm_id):
+    vm = get_object_or_404(VirtualMachine, id=vm_id)
+
+    if request.method == "POST":
+        form = SnapshotForm(request.POST)
+        if form.is_valid():
+            snapshot_name = form.cleaned_data["snapshot_name"]
+            create_snapshot.delay(vm.id, snapshot_name, request.user.id)
+            messages.success(request, f"Snapshot creation initiated for {vm.name}")
+            return redirect("vm_detail", vm_id=vm_id)
+    else:
+        form = SnapshotForm()
+
+    context = {
+        "vm": vm,
+        "form": form,
+    }
+
+    return render(request, "proxmox_manager/create_snapshot.html", context)
+
+
+@login_required
+def cluster_list(request):
+    clusters = ProxmoxCluster.objects.prefetch_related("nodes").all()
+
+    cluster_stats = []
+    for cluster in clusters:
+        nodes = cluster.nodes.all()
+        vms = VirtualMachine.objects.filter(node__cluster=cluster)
+
+        cluster_stats.append(
+            {
+                "cluster": cluster,
+                "node_count": nodes.count(),
+                "vm_count": vms.count(),
+                "running_vms": vms.filter(status="running").count(),
+                "online_nodes": nodes.filter(status="online").count(),
+            }
+        )
+
+    context = {
+        "cluster_stats": cluster_stats,
+    }
+
+    return render(request, "proxmox_manager/cluster_list.html", context)
+
+
+@login_required
+def cluster_detail(request, cluster_id):
+    cluster = get_object_or_404(ProxmoxCluster, id=cluster_id)
+    nodes = cluster.nodes.all()
+    vms = VirtualMachine.objects.filter(node__cluster=cluster)
+
+    context = {
+        "cluster": cluster,
+        "nodes": nodes,
+        "vms": vms,
+    }
+
+    return render(request, "proxmox_manager/cluster_detail.html", context)
+
+
+@login_required
+def sync_cluster(request, cluster_id):
+    cluster = get_object_or_404(ProxmoxCluster, id=cluster_id)
+    sync_cluster_data.delay(cluster.id)
+    messages.success(request, f"Sync initiated for cluster {cluster.name}")
+    return redirect("dashboard")
+
+
+@login_required
+def sync_all_clusters(request):
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    for cluster in clusters:
+        sync_cluster_data.delay(cluster.id)
+    messages.success(request, "Sync initiated for all clusters")
+    return redirect("dashboard")
+
+
+@login_required
+def audit_log(request):
+    logs = AuditLog.objects.select_related("user", "vm", "cluster").all()[:100]
+
+    context = {
+        "logs": logs,
+    }
+
+    return render(request, "proxmox_manager/audit_log.html", context)
+
+
+@login_required
+def node_detail(request, node_id):
+    node = get_object_or_404(Node, id=node_id)
+    vms = node.virtual_machines.all()
+
+    context = {
+        "node": node,
+        "vms": vms,
+    }
+
+    return render(request, "proxmox_manager/node_detail.html", context)

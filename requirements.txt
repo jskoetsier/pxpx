@@ -1,0 +1,27 @@
+# Django Framework
+Django==5.0.2
+django-environ==0.11.2
+
+# Proxmox API Integration
+proxmoxer==2.0.1
+requests==2.31.0
+
+# Celery for Background Tasks
+celery==5.3.6
+redis==5.0.1
+
+# Database
+psycopg2-binary==2.9.9
+
+# Django Extensions
+django-crispy-forms==2.1
+crispy-bootstrap5==2.0.0
+
+# Production Server
+gunicorn==21.2.0
+
+# Security
+cryptography==42.0.2
+
+# Monitoring & Logging
+django-extensions==3.2.3

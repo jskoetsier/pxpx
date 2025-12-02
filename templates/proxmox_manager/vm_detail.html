@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block page_title %}VM Details: {{ vm.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-box"></i> {{ vm.name }} (ID: {{ vm.vmid }})</h5>
+                <div>
+                    {% if vm.status == 'running' %}
+                        <span class="badge bg-success">Running</span>
+                    {% elif vm.status == 'stopped' %}
+                        <span class="badge bg-danger">Stopped</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ vm.status }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="40%">Type:</th>
+                                <td>
+                                    {% if vm.vm_type == 'qemu' %}
+                                        <span class="badge bg-primary">Virtual Machine</span>
+                                    {% else %}
+                                        <span class="badge bg-info">Container</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Node:</th>
+                                <td><a href="{% url 'node_detail' vm.node.id %}">{{ vm.node.name }}</a></td>
+                            </tr>
+                            <tr>
+                                <th>Cluster:</th>
+                                <td><a href="{% url 'cluster_detail' vm.node.cluster.id %}">{{ vm.node.cluster.name }}</a></td>
+                            </tr>
+                            <tr>
+                                <th>CPU Cores:</th>
+                                <td>{{ vm.cpu_cores }}</td>
+                            </tr>
+                            <tr>
+                                <th>RAM:</th>
+                                <td>{{ vm.ram_mb }} MB</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="40%">CPU Usage:</th>
+                                <td>{{ vm.cpu_usage|floatformat:2 }}%</td>
+                            </tr>
+                            <tr>
+                                <th>Disk Size:</th>
+                                <td>{{ vm.disk_gb|floatformat:2 }} GB</td>
+                            </tr>
+                            <tr>
+                                <th>Uptime:</th>
+                                <td>{{ vm.uptime|floatformat:0 }} seconds</td>
+                            </tr>
+                            <tr>
+                                <th>Last Synced:</th>
+                                <td>{{ vm.last_synced|date:"Y-m-d H:i:s" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h6 class="mb-0"><i class="bi bi-lightning"></i> Power Control</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if vm.status != 'running' %}
+                        <a href="{% url 'vm_power_control' vm.id 'start' %}" class="btn btn-success">
+                            <i class="bi bi-play-fill"></i> Start
+                        </a>
+                    {% else %}
+                        <a href="{% url 'vm_power_control' vm.id 'stop' %}" class="btn btn-danger">
+                            <i class="bi bi-stop-fill"></i> Stop
+                        </a>
+                        <a href="{% url 'vm_power_control' vm.id 'reboot' %}" class="btn btn-warning">
+                            <i class="bi bi-arrow-clockwise"></i> Reboot
+                        </a>
+                        <a href="{% url 'vm_power_control' vm.id 'shutdown' %}" class="btn btn-secondary">
+                            <i class="bi bi-power"></i> Shutdown (Guest)
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h6 class="mb-0"><i class="bi bi-tools"></i> Management</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'migrate_vm' vm.id %}" class="btn btn-warning">
+                        <i class="bi bi-arrow-left-right"></i> Migrate
+                    </a>
+                    <a href="{% url 'create_vm_snapshot' vm.id %}" class="btn btn-info">
+                        <i class="bi bi-camera"></i> Create Snapshot
+                    </a>
+                    <a href="{{ vm.node.cluster.api_url }}/#v1:0:=qemu/{{ vm.vmid }}:4:5:=:=noVNC"
+                       class="btn btn-primary" target="_blank">
+                        <i class="bi bi-terminal"></i> Open Console
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if available_nodes %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="bi bi-hdd-rack"></i> Available Migration Targets</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Node</th>
+                                <th>Status</th>
+                                <th>CPU Usage</th>
+                                <th>RAM Usage</th>
+                                <th>RAM Available</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for node in available_nodes %}
+                            <tr>
+                                <td>{{ node.name }}</td>
+                                <td><span class="badge bg-success">{{ node.status }}</span></td>
+                                <td>{{ node.cpu_usage|floatformat:1 }}%</td>
+                                <td>{{ node.ram_usage|floatformat:1 }}%</td>
+                                <td>{{ node.ram_usage_gb }}/{{ node.ram_total_gb }} GB</td>
+                                <td>
+                                    <a href="{% url 'migrate_vm' vm.id %}" class="btn btn-sm btn-outline-warning">
+                                        Migrate Here
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

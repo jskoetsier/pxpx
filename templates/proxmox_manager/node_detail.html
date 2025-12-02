@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Node: {{ node.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-hdd-rack"></i> {{ node.name }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="30%">Cluster:</th>
+                                <td><a href="{% url 'cluster_detail' node.cluster.id %}">{{ node.cluster.name }}</a></td>
+                            </tr>
+                            <tr>
+                                <th>Status:</th>
+                                <td>
+                                    {% if node.status == 'online' %}
+                                        <span class="badge bg-success">Online</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ node.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>CPU Usage:</th>
+                                <td>{{ node.cpu_usage|floatformat:2 }}%</td>
+                            </tr>
+                            <tr>
+                                <th>RAM Usage:</th>
+                                <td>{{ node.ram_usage|floatformat:2 }}% ({{ node.ram_usage_gb }}/{{ node.ram_total_gb }} GB)</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="30%">Disk Usage:</th>
+                                <td>{{ node.disk_usage|floatformat:2 }}% ({{ node.disk_usage_gb }}/{{ node.disk_total_gb }} GB)</td>
+                            </tr>
+                            <tr>
+                                <th>Uptime:</th>
+                                <td>{{ node.uptime|floatformat:0 }} seconds</td>
+                            </tr>
+                            <tr>
+                                <th>Last Synced:</th>
+                                <td>{{ node.last_synced|date:"Y-m-d H:i:s" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-boxes"></i> Virtual Machines ({{ vms.count }})</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>CPU</th>
+                                <th>RAM (MB)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vm in vms %}
+                            <tr>
+                                <td>{{ vm.vmid }}</td>
+                                <td><a href="{% url 'vm_detail' vm.id %}">{{ vm.name }}</a></td>
+                                <td>
+                                    {% if vm.vm_type == 'qemu' %}
+                                        <span class="badge bg-primary">VM</span>
+                                    {% else %}
+                                        <span class="badge bg-info">Container</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if vm.status == 'running' %}
+                                        <span class="badge bg-success">Running</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Stopped</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ vm.cpu_cores }}</td>
+                                <td>{{ vm.ram_mb }}</td>
+                                <td>
+                                    <a href="{% url 'vm_detail' vm.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">No VMs on this node</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

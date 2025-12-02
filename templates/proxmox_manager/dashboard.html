@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}Dashboard{% endblock %}
+{% block page_title %}Infrastructure Overview{% endblock %}
+
+{% block content %}
+<!-- Kanban Board -->
+<div class="kanban-board">
+    <!-- Running VMs Column -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <span class="column-title">Running VMs</span>
+            <span class="column-count">{{ running_vms }}</span>
+        </div>
+
+        {% regroup vms|dictsort:"node.cluster.name" by node.cluster.name as clustered_vms %}
+        {% for cluster in clustered_vms %}
+            {% if cluster.list|selectattr:"status"|selectattr:"status","equalto","running"|list %}
+            <div class="task-group">
+                <div class="group-title">
+                    {{ cluster.grouper }}
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ cluster.list|length }}</span>
+                </div>
+
+                {% for vm in cluster.list %}
+                    {% if vm.status == 'running' %}
+                    <a href="{% url 'vm_detail' vm.id %}" style="text-decoration: none; color: inherit;">
+                        <div class="task-item task-green">
+                            <div class="task-icon" style="background: rgba(255, 255, 255, 0.2);">
+                                <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">{{ vm.name }}</div>
+                                <div style="font-size: 0.75rem; opacity: 0.7;">{{ vm.node.name }} • {{ vm.cpu_cores }} CPU</div>
+                            </div>
+                            <span class="badge badge-success">{{ vm.cpu_usage|floatformat:0 }}%</span>
+                        </div>
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Stopped VMs Column -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <span class="column-title">Stopped VMs</span>
+            <span class="column-count">{{ stopped_vms }}</span>
+        </div>
+
+        {% for cluster in clustered_vms %}
+            {% if cluster.list|selectattr:"status"|selectattr:"status","equalto","stopped"|list %}
+            <div class="task-group">
+                <div class="group-title">
+                    {{ cluster.grouper }}
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ cluster.list|length }}</span>
+                </div>
+
+                {% for vm in cluster.list %}
+                    {% if vm.status == 'stopped' %}
+                    <a href="{% url 'vm_detail' vm.id %}" style="text-decoration: none; color: inherit;">
+                        <div class="task-item task-orange">
+                            <div class="task-icon" style="background: rgba(255, 255, 255, 0.2);">
+                                <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">{{ vm.name }}</div>
+                                <div style="font-size: 0.75rem; opacity: 0.7;">{{ vm.node.name }} • {{ vm.ram_mb }} MB</div>
+                            </div>
+                            <span class="badge badge-warning">Stopped</span>
+                        </div>
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Nodes Column -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <span class="column-title">Nodes</span>
+            <span class="column-count">{{ nodes.count }}</span>
+        </div>
+
+        {% regroup nodes by cluster.name as clustered_nodes %}
+        {% for cluster in clustered_nodes %}
+        <div class="task-group">
+            <div class="group-title">
+                {{ cluster.grouper }}
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ cluster.list|length }}</span>
+            </div>
+
+            {% for node in cluster.list %}
+            <a href="{% url 'node_detail' node.id %}" style="text-decoration: none; color: inherit;">
+                <div class="task-item {% cycle 'task-purple' 'task-cyan' 'task-pink' 'task-blue' %}">
+                    <div class="task-icon" style="background: rgba(255, 255, 255, 0.2);">
+                        <i class="bi bi-hdd-rack text-white"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500;">{{ node.name }}</div>
+                        <div style="font-size: 0.75rem; opacity: 0.7;">
+                            CPU: {{ node.cpu_usage|floatformat:0 }}% • RAM: {{ node.ram_usage|floatformat:0 }}%
+                        </div>
+                    </div>
+                    {% if node.status == 'online' %}
+                        <span class="badge badge-success">Online</span>
+                    {% else %}
+                        <span class="badge badge-danger">Offline</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Recent Activity Column -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <span class="column-title">Recent Activity</span>
+            <span class="column-count">{{ recent_logs.count }}</span>
+        </div>
+
+        <div class="task-group">
+            {% for log in recent_logs|slice:":10" %}
+            <div class="task-card">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <div class="task-icon {% if log.status == 'success' %}task-green{% elif log.status == 'failed' %}task-orange{% else %}task-cyan{% endif %}">
+                        <i class="bi bi-{% if log.action == 'migrate' %}arrow-left-right{% elif log.action == 'start' %}play-fill{% elif log.action == 'stop' %}stop-fill{% else %}gear{% endif %} text-white"></i>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ log.get_action_display }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                            {% if log.vm %}{{ log.vm.name }}{% else %}{{ log.cluster.name }}{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-secondary);">
+                    <span>{{ log.created_at|timesince }} ago</span>
+                    {% if log.status == 'success' %}
+                        <span class="badge badge-success">Success</span>
+                    {% elif log.status == 'failed' %}
+                        <span class="badge badge-danger">Failed</span>
+                    {% else %}
+                        <span class="badge badge-info">Pending</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.5;"></i>
+                <div style="margin-top: 0.5rem;">No recent activity</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Clusters Overview -->
+<div style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600; margin: 0;">Clusters</h3>
+        <a href="{% url 'cluster_list' %}" class="nav-link">View All <i class="bi bi-arrow-right"></i></a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+        {% for cluster in clusters %}
+        <a href="{% url 'cluster_detail' cluster.id %}" style="text-decoration: none; color: inherit;">
+            <div class="task-card" style="padding: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items-start; margin-bottom: 1rem;">
+                    <div>
+                        <h4 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.25rem;">{{ cluster.name }}</h4>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">{{ cluster.api_url }}</div>
+                    </div>
+                    {% if cluster.is_active %}
+                        <span class="badge badge-success">Active</span>
+                    {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                    {% endif %}
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-purple);">
+                            {{ cluster.nodes.count }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Nodes</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">
+                            {{ cluster.nodes.all|length }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">VMs</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-green);">
+                            {{ cluster.nodes.filter|length }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Online</div>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% empty %}
+        <div class="kanban-column">
+            <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                <i class="bi bi-hdd-rack" style="font-size: 3rem; opacity: 0.3;"></i>
+                <h3 style="margin-top: 1rem; font-size: 1.125rem;">No Clusters Configured</h3>
+                <p style="margin: 0.5rem 0 1.5rem;">Add your first Proxmox cluster to get started</p>
+                <a href="{% url 'admin:proxmox_manager_proxmoxcluster_add' %}" class="badge badge-info" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                    <i class="bi bi-plus-circle"></i> Add Cluster
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
