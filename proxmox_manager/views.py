@@ -6,7 +6,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import MigrationForm, SnapshotForm, VMSearchForm
 from .models import AuditLog, Node, ProxmoxCluster, VirtualMachine
-from .tasks import create_snapshot, migrate_vm_task, sync_cluster_data, vm_power_action
+from .tasks import (
+    create_snapshot,
+    get_proxmox_connection,
+    migrate_vm_task,
+    sync_cluster_data,
+    vm_power_action,
+)
 
 
 @login_required
@@ -364,7 +370,7 @@ def vm_console(request, vm_id):
 
     # Get console connection details from Proxmox
     try:
-        proxmox = vm.node.cluster.get_proxmox_connection()
+        proxmox = get_proxmox_connection(vm.node.cluster)
         node_name = vm.node.name
 
         # Create console ticket
@@ -405,7 +411,7 @@ def vm_console_proxy(request, vm_id):
     vm = get_object_or_404(VirtualMachine, id=vm_id)
 
     try:
-        proxmox = vm.node.cluster.get_proxmox_connection()
+        proxmox = get_proxmox_connection(vm.node.cluster)
         node_name = vm.node.name
 
         # Create VNC websocket
