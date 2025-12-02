@@ -10,12 +10,11 @@ done
 
 echo "PostgreSQL is ready!"
 
-echo "Waiting for Redis to be ready..."
-while ! redis-cli -h redis ping; do
-  sleep 1
-done
+# Give Redis a moment to start
+echo "Waiting for Redis..."
+sleep 5
 
-echo "Redis is ready!"
+echo "Redis should be ready!"
 
 echo "Running database migrations..."
 python manage.py migrate --noinput
