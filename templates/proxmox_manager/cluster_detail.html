@@ -40,7 +40,7 @@
         <div style="display: flex; justify-content: space-between; align-items: start;">
             <div>
                 <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Total Nodes</div>
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-purple);">{{ nodes.count }}</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-purple);" data-stat="node-count">{{ nodes.count }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
                     {% with online_count=nodes|length %}
                     {% if online_count > 0 %}
@@ -62,17 +62,7 @@
         <div style="display: flex; justify-content: space-between; align-items: start;">
             <div>
                 <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Online Nodes</div>
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">
-                    {% with online_count=0 %}
-                    {% for node in nodes %}
-                        {% if node.status == 'online' %}
-                            {% with online_count=online_count|add:1 %}
-                            {% endwith %}
-                        {% endif %}
-                    {% endfor %}
-                    {{ nodes|length }}
-                    {% endwith %}
-                </div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);" data-stat="online-nodes">{{ nodes|length }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
                     {% if nodes.count > 0 %}
                         Online status available
@@ -92,17 +82,9 @@
         <div style="display: flex; justify-content: space-between; align-items: start;">
             <div>
                 <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Virtual Machines</div>
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);">{{ vms.count }}</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);" data-stat="vm-count">{{ vms.count }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
-                    {% with running_count=0 %}
-                    {% for vm in vms %}
-                        {% if vm.status == 'running' %}
-                            {% with running_count=running_count|add:1 %}
-                            {% endwith %}
-                        {% endif %}
-                    {% endfor %}
-                    Total across cluster
-                    {% endwith %}
+                    <span data-stat="running-vms">{{ vms|length }}</span> total
                 </div>
             </div>
             <div style="width: 48px; height: 48px; background: rgba(34, 211, 238, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
@@ -324,4 +306,48 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Real-time cluster stats updates -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const clusterId = {{ cluster.id }};
+
+    // Function to update cluster stats
+    async function refreshClusterStats() {
+        try {
+            const response = await fetch(`/api/cluster/${clusterId}/stats/`);
+            const data = await response.json();
+
+            // Update stats on the page
+            if (data.stats) {
+                // Update node count
+                const nodeCountEl = document.querySelector('[data-stat="node-count"]');
+                if (nodeCountEl) nodeCountEl.textContent = data.stats.node_count;
+
+                // Update VM count
+                const vmCountEl = document.querySelector('[data-stat="vm-count"]');
+                if (vmCountEl) vmCountEl.textContent = data.stats.vm_count;
+
+                // Update online nodes
+                const onlineNodesEl = document.querySelector('[data-stat="online-nodes"]');
+                if (onlineNodesEl) onlineNodesEl.textContent = data.stats.online_nodes;
+
+                // Update running VMs
+                const runningVmsEl = document.querySelector('[data-stat="running-vms"]');
+                if (runningVmsEl) runningVmsEl.textContent = data.stats.running_vms;
+            }
+
+            console.log('Cluster stats refreshed');
+        } catch (error) {
+            console.error('Failed to refresh cluster stats:', error);
+        }
+    }
+
+    // Initial load
+    refreshClusterStats();
+
+    // Poll every 30 seconds
+    setInterval(refreshClusterStats, 30000);
+});
+</script>
 {% endblock %}
