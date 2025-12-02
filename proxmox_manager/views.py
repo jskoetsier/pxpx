@@ -198,6 +198,20 @@ def cluster_detail(request, cluster_id):
 @login_required
 def sync_cluster(request, cluster_id):
     cluster = get_object_or_404(ProxmoxCluster, id=cluster_id)
+
+    # If AJAX request, return JSON
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        task = sync_cluster_data.delay(cluster.id)
+        return JsonResponse(
+            {
+                "status": "started",
+                "message": f"Sync initiated for cluster {cluster.name}",
+                "task_id": task.id,
+                "cluster_id": cluster.id,
+            }
+        )
+
+    # Regular request - redirect with message
     sync_cluster_data.delay(cluster.id)
     messages.success(request, f"Sync initiated for cluster {cluster.name}")
     return redirect("dashboard")
@@ -206,10 +220,118 @@ def sync_cluster(request, cluster_id):
 @login_required
 def sync_all_clusters(request):
     clusters = ProxmoxCluster.objects.filter(is_active=True)
+
+    # If AJAX request, return JSON
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        task_ids = []
+        for cluster in clusters:
+            task = sync_cluster_data.delay(cluster.id)
+            task_ids.append(
+                {"cluster_id": cluster.id, "task_id": task.id, "name": cluster.name}
+            )
+
+        return JsonResponse(
+            {
+                "status": "started",
+                "message": f"Sync initiated for {len(clusters)} cluster(s)",
+                "tasks": task_ids,
+            }
+        )
+
+    # Regular request - redirect with message
     for cluster in clusters:
         sync_cluster_data.delay(cluster.id)
     messages.success(request, "Sync initiated for all clusters")
     return redirect("dashboard")
+
+
+@login_required
+def get_cluster_stats(request, cluster_id):
+    """API endpoint to get cluster stats without page reload"""
+    cluster = get_object_or_404(ProxmoxCluster, id=cluster_id)
+    nodes = cluster.nodes.all()
+    vms = VirtualMachine.objects.filter(node__cluster=cluster)
+
+    nodes_data = []
+    for node in nodes:
+        nodes_data.append(
+            {
+                "id": node.id,
+                "name": node.name,
+                "status": node.status,
+                "cpu_usage": float(node.cpu_usage),
+                "ram_usage": float(node.ram_usage),
+                "disk_usage": float(node.disk_usage),
+                "vm_count": node.virtual_machines.count(),
+            }
+        )
+
+    vms_data = []
+    for vm in vms[:20]:  # Limit to 20 VMs for performance
+        vms_data.append(
+            {
+                "id": vm.id,
+                "name": vm.name,
+                "vmid": vm.vmid,
+                "status": vm.status,
+                "cpu_usage": float(vm.cpu_usage) if vm.cpu_usage else 0,
+                "ram_mb": vm.ram_mb,
+                "node_name": vm.node.name,
+            }
+        )
+
+    return JsonResponse(
+        {
+            "cluster": {
+                "id": cluster.id,
+                "name": cluster.name,
+                "is_active": cluster.is_active,
+            },
+            "stats": {
+                "node_count": nodes.count(),
+                "vm_count": vms.count(),
+                "running_vms": vms.filter(status="running").count(),
+                "online_nodes": nodes.filter(status="online").count(),
+            },
+            "nodes": nodes_data,
+            "vms": vms_data,
+        }
+    )
+
+
+@login_required
+def get_dashboard_stats(request):
+    """API endpoint to get dashboard stats without page reload"""
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    vms = VirtualMachine.objects.all()
+
+    return JsonResponse(
+        {
+            "stats": {
+                "total_vms": vms.count(),
+                "running_vms": vms.filter(status="running").count(),
+                "stopped_vms": vms.filter(status="stopped").count(),
+                "total_nodes": nodes.count(),
+                "online_nodes": nodes.filter(status="online").count(),
+                "avg_cpu": round(
+                    nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0, 2
+                ),
+                "avg_ram": round(
+                    nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0, 2
+                ),
+            },
+            "clusters": [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "node_count": c.nodes.count(),
+                    "vm_count": VirtualMachine.objects.filter(node__cluster=c).count(),
+                }
+                for c in clusters
+            ],
+        }
+    )
 
 
 @login_required

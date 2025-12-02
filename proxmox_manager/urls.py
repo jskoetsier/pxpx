@@ -21,4 +21,11 @@ urlpatterns = [
     path("clusters/sync-all/", views.sync_all_clusters, name="sync_all_clusters"),
     path("nodes/<int:node_id>/", views.node_detail, name="node_detail"),
     path("audit-log/", views.audit_log, name="audit_log"),
+    # API endpoints for real-time updates
+    path("api/dashboard/stats/", views.get_dashboard_stats, name="api_dashboard_stats"),
+    path(
+        "api/cluster/<int:cluster_id>/stats/",
+        views.get_cluster_stats,
+        name="api_cluster_stats",
+    ),
 ]

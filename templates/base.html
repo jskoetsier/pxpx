@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="{% static 'css/modern-theme.css' %}">
 
     {% block extra_css %}{% endblock %}
+
+    <!-- Real-time Sync JavaScript -->
+    <script src="{% static 'js/realtime-sync.js' %}" defer></script>
 </head>
 <body>
     <!-- Left Sidebar -->
@@ -27,7 +30,7 @@
             <i class="bi bi-journal-text"></i>
         </a>
         <div style="flex: 1;"></div>
-        <a href="{% url 'sync_all_clusters' %}" class="sidebar-icon">
+        <a href="#" onclick="event.preventDefault(); realtimeSync.syncAllClusters(this);" class="sidebar-icon" data-sync-button title="Sync All Clusters">
             <i class="bi bi-arrow-repeat"></i>
         </a>
         <a href="{% url 'admin:index' %}" class="sidebar-icon">

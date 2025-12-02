@@ -59,7 +59,7 @@
                    style="flex: 1; padding: 0.75rem 1rem; background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); border-radius: 10px; color: white; text-decoration: none; font-weight: 600; text-align: center;">
                     <i class="bi bi-eye"></i> View Details
                 </a>
-                <a href="{% url 'sync_cluster' stat.cluster.id %}"
+                <a href="#" onclick="event.preventDefault(); realtimeSync.syncCluster({{ stat.cluster.id }}, this);" data-sync-button
                    style="padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: var(--text-primary); text-decoration: none; font-weight: 600;">
                     <i class="bi bi-arrow-repeat"></i>
                 </a>

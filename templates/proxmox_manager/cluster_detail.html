@@ -27,7 +27,7 @@
                 <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Inactive
             </span>
         {% endif %}
-        <a href="{% url 'sync_cluster' cluster.id %}" class="btn" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); color: white; padding: 0.75rem 1.5rem; border-radius: 12px; border: none; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+        <a href="#" onclick="event.preventDefault(); realtimeSync.syncCluster({{ cluster.id }}, this);" class="btn" data-sync-button style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); color: white; padding: 0.75rem 1.5rem; border-radius: 12px; border: none; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
             <i class="bi bi-arrow-repeat"></i> Sync Now
         </a>
     </div>
