@@ -1,172 +1,208 @@
 {% extends 'base.html' %}
 
-{% block page_title %}VM Details: {{ vm.name }}{% endblock %}
+{% block breadcrumb %}<a href="{% url 'vm_list' %}" style="color: var(--text-secondary); text-decoration: none;">Virtual Machines</a> / {{ vm.name }}{% endblock %}
+{% block page_title %}{{ vm.name }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-box"></i> {{ vm.name }} (ID: {{ vm.vmid }})</h5>
-                <div>
-                    {% if vm.status == 'running' %}
-                        <span class="badge bg-success">Running</span>
-                    {% elif vm.status == 'stopped' %}
-                        <span class="badge bg-danger">Stopped</span>
-                    {% else %}
-                        <span class="badge bg-secondary">{{ vm.status }}</span>
-                    {% endif %}
-                </div>
+<!-- VM Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, {% if vm.status == 'running' %}var(--accent-green), var(--accent-cyan){% else %}var(--accent-orange), var(--accent-pink){% endif %}); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white" style="font-size: 1.75rem;"></i>
+        </div>
+        <div>
+            <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0;">{{ vm.name }}</h2>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem;">
+                <span class="badge" style="background: rgba(255, 255, 255, 0.1); padding: 0.25rem 0.5rem;">ID: {{ vm.vmid }}</span>
+                <span style="margin: 0 0.5rem;">•</span>
+                {% if vm.vm_type == 'qemu' %}
+                    <span class="badge badge-info">Virtual Machine</span>
+                {% else %}
+                    <span class="badge" style="background: var(--accent-cyan); color: white;">Container</span>
+                {% endif %}
+                <span style="margin: 0 0.5rem;">•</span>
+                Last synced {{ vm.last_synced|timesince }} ago
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <th width="40%">Type:</th>
-                                <td>
-                                    {% if vm.vm_type == 'qemu' %}
-                                        <span class="badge bg-primary">Virtual Machine</span>
-                                    {% else %}
-                                        <span class="badge bg-info">Container</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Node:</th>
-                                <td><a href="{% url 'node_detail' vm.node.id %}">{{ vm.node.name }}</a></td>
-                            </tr>
-                            <tr>
-                                <th>Cluster:</th>
-                                <td><a href="{% url 'cluster_detail' vm.node.cluster.id %}">{{ vm.node.cluster.name }}</a></td>
-                            </tr>
-                            <tr>
-                                <th>CPU Cores:</th>
-                                <td>{{ vm.cpu_cores }}</td>
-                            </tr>
-                            <tr>
-                                <th>RAM:</th>
-                                <td>{{ vm.ram_mb }} MB</td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <th width="40%">CPU Usage:</th>
-                                <td>{{ vm.cpu_usage|floatformat:2 }}%</td>
-                            </tr>
-                            <tr>
-                                <th>Disk Size:</th>
-                                <td>{{ vm.disk_gb|floatformat:2 }} GB</td>
-                            </tr>
-                            <tr>
-                                <th>Uptime:</th>
-                                <td>{{ vm.uptime|floatformat:0 }} seconds</td>
-                            </tr>
-                            <tr>
-                                <th>Last Synced:</th>
-                                <td>{{ vm.last_synced|date:"Y-m-d H:i:s" }}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
+        </div>
+    </div>
+    <div>
+        {% if vm.status == 'running' %}
+            <span class="badge badge-success" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Running
+            </span>
+        {% elif vm.status == 'stopped' %}
+            <span class="badge badge-warning" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Stopped
+            </span>
+        {% elif vm.status == 'paused' %}
+            <span class="badge" style="background: var(--accent-purple); padding: 0.5rem 1rem; font-size: 0.875rem; color: white;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Paused
+            </span>
+        {% else %}
+            <span class="badge" style="background: var(--text-secondary); padding: 0.5rem 1rem; font-size: 0.875rem;">
+                {{ vm.status|title }}
+            </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Resource Stats -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- CPU Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">CPU</div>
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--accent-purple);">{{ vm.cpu_cores }} Core{% if vm.cpu_cores != 1 %}s{% endif %}</div>
+                {% if vm.status == 'running' %}
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ vm.cpu_usage|floatformat:1 }}% Usage</div>
+                {% endif %}
+            </div>
+            <div style="width: 40px; height: 40px; background: rgba(147, 51, 234, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-cpu" style="color: var(--accent-purple); font-size: 1.25rem;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAM Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">RAM</div>
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--accent-cyan);">{{ vm.ram_mb }} MB</div>
+            </div>
+            <div style="width: 40px; height: 40px; background: rgba(34, 211, 238, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-memory" style="color: var(--accent-cyan); font-size: 1.25rem;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disk Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Disk</div>
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--accent-green);">{{ vm.disk_gb|floatformat:1 }} GB</div>
+            </div>
+            <div style="width: 40px; height: 40px; background: rgba(74, 222, 128, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-device-hdd" style="color: var(--accent-green); font-size: 1.25rem;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uptime Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Uptime</div>
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--accent-orange);">{% widthratio vm.uptime 86400 1 %} days</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">{% widthratio vm.uptime 3600 1 %} hours</div>
+            </div>
+            <div style="width: 40px; height: 40px; background: rgba(251, 146, 60, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-clock-history" style="color: var(--accent-orange); font-size: 1.25rem;"></i>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">
-                <h6 class="mb-0"><i class="bi bi-lightning"></i> Power Control</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    {% if vm.status != 'running' %}
-                        <a href="{% url 'vm_power_control' vm.id 'start' %}" class="btn btn-success">
-                            <i class="bi bi-play-fill"></i> Start
-                        </a>
-                    {% else %}
-                        <a href="{% url 'vm_power_control' vm.id 'stop' %}" class="btn btn-danger">
-                            <i class="bi bi-stop-fill"></i> Stop
-                        </a>
-                        <a href="{% url 'vm_power_control' vm.id 'reboot' %}" class="btn btn-warning">
-                            <i class="bi bi-arrow-clockwise"></i> Reboot
-                        </a>
-                        <a href="{% url 'vm_power_control' vm.id 'shutdown' %}" class="btn btn-secondary">
-                            <i class="bi bi-power"></i> Shutdown (Guest)
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
+<!-- Location Info -->
+<div class="task-card" style="margin-bottom: 2rem; padding: 1.25rem;">
+    <h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 1rem 0; color: var(--text-secondary);">
+        <i class="bi bi-geo-alt"></i> Location
+    </h4>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+        <div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Node</div>
+            <a href="{% url 'node_detail' vm.node.id %}" style="color: var(--accent-cyan); text-decoration: none; font-size: 1.125rem; font-weight: 500;">
+                <i class="bi bi-hdd-rack"></i> {{ vm.node.name }}
+            </a>
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">
-                <h6 class="mb-0"><i class="bi bi-tools"></i> Management</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{% url 'migrate_vm' vm.id %}" class="btn btn-warning">
-                        <i class="bi bi-arrow-left-right"></i> Migrate
-                    </a>
-                    <a href="{% url 'create_vm_snapshot' vm.id %}" class="btn btn-info">
-                        <i class="bi bi-camera"></i> Create Snapshot
-                    </a>
-                    <a href="{{ vm.node.cluster.api_url }}/#v1:0:=qemu/{{ vm.vmid }}:4:5:=:=noVNC"
-                       class="btn btn-primary" target="_blank">
-                        <i class="bi bi-terminal"></i> Open Console
-                    </a>
-                </div>
-            </div>
+        <div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Cluster</div>
+            <a href="{% url 'cluster_detail' vm.node.cluster.id %}" style="color: var(--accent-purple); text-decoration: none; font-size: 1.125rem; font-weight: 500;">
+                <i class="bi bi-building"></i> {{ vm.node.cluster.name }}
+            </a>
         </div>
     </div>
 </div>
 
+<!-- Action Panels -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Power Control -->
+    <div class="task-card">
+        <h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 1rem 0;">
+            <i class="bi bi-lightning-charge"></i> Power Control
+        </h4>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {% if vm.status != 'running' %}
+                <a href="{% url 'vm_power_control' vm.id 'start' %}"
+                   style="padding: 0.875rem 1.25rem; background: linear-gradient(135deg, var(--accent-green), #10b981); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                    <i class="bi bi-play-fill"></i> Start VM
+                </a>
+            {% else %}
+                <a href="{% url 'vm_power_control' vm.id 'stop' %}"
+                   style="padding: 0.875rem 1.25rem; background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                    <i class="bi bi-stop-fill"></i> Stop VM
+                </a>
+                <a href="{% url 'vm_power_control' vm.id 'reboot' %}"
+                   style="padding: 0.875rem 1.25rem; background: rgba(251, 146, 60, 0.2); border: 1px solid rgba(251, 146, 60, 0.3); border-radius: 12px; color: var(--accent-orange); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                    <i class="bi bi-arrow-clockwise"></i> Reboot
+                </a>
+                <a href="{% url 'vm_power_control' vm.id 'shutdown' %}"
+                   style="padding: 0.875rem 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: var(--text-primary); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                    <i class="bi bi-power"></i> Shutdown (Guest)
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Management Actions -->
+    <div class="task-card">
+        <h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 1rem 0;">
+            <i class="bi bi-tools"></i> Management
+        </h4>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <a href="{% url 'migrate_vm' vm.id %}"
+               style="padding: 0.875rem 1.25rem; background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                <i class="bi bi-arrow-left-right"></i> Migrate VM
+            </a>
+            <a href="{% url 'create_vm_snapshot' vm.id %}"
+               style="padding: 0.875rem 1.25rem; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                <i class="bi bi-camera"></i> Create Snapshot
+            </a>
+            <a href="{{ vm.node.cluster.api_url }}/#v1:0:=qemu/{{ vm.vmid }}:4:5:=:=noVNC" target="_blank"
+               style="padding: 0.875rem 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: var(--text-primary); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                <i class="bi bi-terminal"></i> Open Console
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Available Migration Targets -->
 {% if available_nodes %}
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">
-                <h6 class="mb-0"><i class="bi bi-hdd-rack"></i> Available Migration Targets</h6>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Node</th>
-                                <th>Status</th>
-                                <th>CPU Usage</th>
-                                <th>RAM Usage</th>
-                                <th>RAM Available</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for node in available_nodes %}
-                            <tr>
-                                <td>{{ node.name }}</td>
-                                <td><span class="badge bg-success">{{ node.status }}</span></td>
-                                <td>{{ node.cpu_usage|floatformat:1 }}%</td>
-                                <td>{{ node.ram_usage|floatformat:1 }}%</td>
-                                <td>{{ node.ram_usage_gb }}/{{ node.ram_total_gb }} GB</td>
-                                <td>
-                                    <a href="{% url 'migrate_vm' vm.id %}" class="btn btn-sm btn-outline-warning">
-                                        Migrate Here
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+<div class="task-card">
+    <h4 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 1.5rem 0;">
+        <i class="bi bi-hdd-rack"></i> Available Migration Targets
+    </h4>
+    <div style="display: grid; gap: 1rem;">
+        {% for node in available_nodes %}
+        <div style="padding: 1rem; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 1.125rem; margin-bottom: 0.5rem;">{{ node.name }}</div>
+                <div style="display: flex; gap: 2rem; font-size: 0.875rem; color: var(--text-secondary);">
+                    <div><i class="bi bi-cpu"></i> CPU: {{ node.cpu_usage|floatformat:1 }}%</div>
+                    <div><i class="bi bi-memory"></i> RAM: {{ node.ram_usage|floatformat:1 }}% ({{ node.ram_usage_gb }}/{{ node.ram_total_gb }} GB)</div>
+                    <div>
+                        <span class="badge badge-success">{{ node.status|title }}</span>
+                    </div>
                 </div>
             </div>
+            <a href="{% url 'migrate_vm' vm.id %}"
+               style="padding: 0.75rem 1.25rem; background: rgba(251, 146, 60, 0.2); border: 1px solid rgba(251, 146, 60, 0.3); border-radius: 10px; color: var(--accent-orange); text-decoration: none; font-weight: 600; white-space: nowrap;">
+                <i class="bi bi-arrow-right-circle"></i> Migrate Here
+            </a>
         </div>
+        {% endfor %}
     </div>
 </div>
 {% endif %}

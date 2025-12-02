@@ -1,123 +1,179 @@
 {% extends 'base.html' %}
+{% load crispy_forms_tags %}
 
+{% block breadcrumb %}Virtual Machines{% endblock %}
 {% block page_title %}Virtual Machines{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-4">
-                    {{ form.search.label_tag }}
-                    {{ form.search }}
-                </div>
-                <div class="col-md-2">
-                    {{ form.cluster.label_tag }}
-                    {{ form.cluster }}
-                </div>
-                <div class="col-md-2">
-                    {{ form.status.label_tag }}
-                    {{ form.status }}
-                </div>
-                <div class="col-md-2">
-                    {{ form.vm_type.label_tag }}
-                    {{ form.vm_type }}
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filter
-                    </button>
-                </div>
-            </form>
+<!-- Filter Bar -->
+<div class="task-card" style="margin-bottom: 2rem; padding: 1.5rem;">
+    <form method="get" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 1rem; align-items: end;">
+        <div>
+            <label style="display: block; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Search</label>
+            <input type="text" name="search" placeholder="Search by name or ID..." value="{{ form.search.value|default:'' }}"
+                   style="width: 100%; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: var(--text-primary); font-size: 0.875rem;">
         </div>
-    </div>
+        <div>
+            <label style="display: block; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Cluster</label>
+            {{ form.cluster }}
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Status</label>
+            {{ form.status }}
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Type</label>
+            {{ form.vm_type }}
+        </div>
+        <button type="submit" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); border: none; border-radius: 12px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="bi bi-search"></i> Filter
+        </button>
+    </form>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="bi bi-boxes"></i> Virtual Machines ({{ vms.count }})</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Node</th>
-                        <th>Cluster</th>
-                        <th>Status</th>
-                        <th>CPU Cores</th>
-                        <th>RAM (MB)</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for vm in vms %}
-                    <tr>
-                        <td>{{ vm.vmid }}</td>
-                        <td>
-                            <a href="{% url 'vm_detail' vm.id %}">{{ vm.name }}</a>
-                        </td>
-                        <td>
-                            {% if vm.vm_type == 'qemu' %}
-                                <span class="badge bg-primary">VM</span>
-                            {% else %}
-                                <span class="badge bg-info">Container</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ vm.node.name }}</td>
-                        <td>{{ vm.node.cluster.name }}</td>
-                        <td>
+<!-- VM Count Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <h3 style="font-size: 1.25rem; font-weight: 600; margin: 0;">
+        <i class="bi bi-boxes"></i> All Virtual Machines
+        <span style="color: var(--text-secondary); font-weight: 400; font-size: 1rem;">({{ vms.count }})</span>
+    </h3>
+</div>
+
+<!-- VM Grid -->
+{% if vms %}
+<div style="display: grid; gap: 1rem;">
+    {% for vm in vms %}
+    <a href="{% url 'vm_detail' vm.id %}" style="text-decoration: none; color: inherit;">
+        <div class="task-card" style="padding: 1.25rem; transition: transform 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <!-- VM Icon -->
+                <div class="task-icon {% if vm.status == 'running' %}task-green{% elif vm.status == 'stopped' %}task-orange{% elif vm.status == 'paused' %}task-purple{% else %}task-cyan{% endif %}">
+                    <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white"></i>
+                </div>
+
+                <!-- VM Info -->
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                        <h4 style="font-size: 1.125rem; font-weight: 600; margin: 0;">{{ vm.name }}</h4>
+                        <span class="badge" style="background: rgba(255, 255, 255, 0.1); padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                            ID: {{ vm.vmid }}
+                        </span>
+                        {% if vm.vm_type == 'qemu' %}
+                            <span class="badge badge-info">VM</span>
+                        {% else %}
+                            <span class="badge" style="background: var(--accent-cyan); color: white;">Container</span>
+                        {% endif %}
+                    </div>
+
+                    <div style="display: flex; gap: 2rem; font-size: 0.875rem; color: var(--text-secondary);">
+                        <div>
+                            <i class="bi bi-hdd-rack"></i>
+                            <a href="{% url 'node_detail' vm.node.id %}" style="color: var(--accent-cyan); text-decoration: none;">{{ vm.node.name }}</a>
+                        </div>
+                        <div>
+                            <i class="bi bi-building"></i>
+                            <a href="{% url 'cluster_detail' vm.node.cluster.id %}" style="color: var(--accent-purple); text-decoration: none;">{{ vm.node.cluster.name }}</a>
+                        </div>
+                        <div>
+                            <i class="bi bi-cpu"></i> {{ vm.cpu_cores }} Core{% if vm.cpu_cores != 1 %}s{% endif %}
                             {% if vm.status == 'running' %}
-                                <span class="badge bg-success">Running</span>
-                            {% elif vm.status == 'stopped' %}
-                                <span class="badge bg-danger">Stopped</span>
-                            {% elif vm.status == 'paused' %}
-                                <span class="badge bg-warning">Paused</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Unknown</span>
+                                <span style="color: var(--accent-cyan);">({{ vm.cpu_usage|floatformat:0 }}%)</span>
                             {% endif %}
-                        </td>
-                        <td>{{ vm.cpu_cores }}</td>
-                        <td>{{ vm.ram_mb }}</td>
-                        <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <a href="{% url 'vm_detail' vm.id %}" class="btn btn-outline-primary" title="Details">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                {% if vm.status != 'running' %}
-                                <a href="{% url 'vm_power_control' vm.id 'start' %}" class="btn btn-outline-success" title="Start">
-                                    <i class="bi bi-play-fill"></i>
-                                </a>
-                                {% else %}
-                                <a href="{% url 'vm_power_control' vm.id 'stop' %}" class="btn btn-outline-danger" title="Stop">
-                                    <i class="bi bi-stop-fill"></i>
-                                </a>
-                                {% endif %}
-                                <a href="{% url 'migrate_vm' vm.id %}" class="btn btn-outline-warning" title="Migrate">
-                                    <i class="bi bi-arrow-left-right"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="9" class="text-center text-muted">No virtual machines found</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endblock %}
+                        </div>
+                        <div>
+                            <i class="bi bi-memory"></i> {{ vm.ram_mb }} MB
+                        </div>
+                        {% if vm.status == 'running' and vm.uptime %}
+                        <div>
+                            <i class="bi bi-clock"></i> Uptime: {% widthratio vm.uptime 3600 1 %}h
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
 
-{% block extra_css %}
+                <!-- Status & Actions -->
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <!-- Status Badge -->
+                    <div>
+                        {% if vm.status == 'running' %}
+                            <span class="badge badge-success" style="padding: 0.5rem 1rem;">
+                                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Running
+                            </span>
+                        {% elif vm.status == 'stopped' %}
+                            <span class="badge badge-warning" style="padding: 0.5rem 1rem;">
+                                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Stopped
+                            </span>
+                        {% elif vm.status == 'paused' %}
+                            <span class="badge" style="background: var(--accent-purple); padding: 0.5rem 1rem; color: white;">
+                                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Paused
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background: var(--text-secondary); padding: 0.5rem 1rem;">
+                                {{ vm.status|title }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div style="display: flex; gap: 0.5rem;" onclick="event.preventDefault(); event.stopPropagation();">
+                        {% if vm.status != 'running' %}
+                        <a href="{% url 'vm_power_control' vm.id 'start' %}"
+                           style="width: 36px; height: 36px; background: rgba(74, 222, 128, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none;"
+                           title="Start VM">
+                            <i class="bi bi-play-fill" style="color: var(--accent-green);"></i>
+                        </a>
+                        {% else %}
+                        <a href="{% url 'vm_power_control' vm.id 'stop' %}"
+                           style="width: 36px; height: 36px; background: rgba(239, 68, 68, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none;"
+                           title="Stop VM">
+                            <i class="bi bi-stop-fill" style="color: #ef4444;"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'migrate_vm' vm.id %}"
+                           style="width: 36px; height: 36px; background: rgba(251, 146, 60, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none;"
+                           title="Migrate VM">
+                            <i class="bi bi-arrow-left-right" style="color: var(--accent-orange);"></i>
+                        </a>
+                    </div>
+
+                    <!-- Arrow Icon -->
+                    <div style="color: var(--text-secondary);">
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<!-- Empty State -->
+<div class="task-card" style="text-align: center; padding: 4rem 2rem;">
+    <i class="bi bi-inbox" style="font-size: 4rem; opacity: 0.3; color: var(--text-secondary);"></i>
+    <h3 style="margin-top: 1.5rem; font-size: 1.25rem; color: var(--text-secondary);">No Virtual Machines Found</h3>
+    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Try adjusting your filters or sync your clusters to discover VMs.</p>
+</div>
+{% endif %}
+
 <style>
-    .form-control, .form-select {
-        border-radius: 0.25rem;
-    }
+.task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+select option {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+}
 </style>
 {% endblock %}
