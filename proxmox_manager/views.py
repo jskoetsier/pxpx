@@ -29,6 +29,7 @@ def dashboard(request):
     context = {
         "clusters": clusters,
         "nodes": nodes,
+        "vms": vms,
         "total_vms": total_vms,
         "running_vms": running_vms,
         "stopped_vms": stopped_vms,
