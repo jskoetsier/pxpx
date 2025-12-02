@@ -68,7 +68,7 @@
                             <li><strong>Type:</strong> {{ vm_type|upper }}</li>
                             <li><strong>Node:</strong> {{ node_name }}</li>
                             <li><strong>Cluster:</strong> {{ vm.node.cluster.name }}</li>
-                            <li><strong>Status:</strong> <span class="badge bg-{{ vm.status == 'running' and 'success' or 'danger' }}">{{ vm.status|upper }}</span></li>
+                            <li><strong>Status:</strong> <span class="badge bg-{% if vm.status == 'running' %}success{% else %}danger{% endif %}">{{ vm.status|upper }}</span></li>
                         </ul>
                     </div>
                 </div>
