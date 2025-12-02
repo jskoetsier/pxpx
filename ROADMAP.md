@@ -10,16 +10,16 @@ This document outlines the planned features and improvements for PXMX - Proxmox 
 
 ### Features
 
-#### Task Status Visibility (Partially Complete - Backend in v1.1.1)
+#### Task Status Visibility ✅ COMPLETED (v1.1.1)
 - [x] ✅ Task execution time metrics (v1.1.1)
 - [x] ✅ CeleryTask model and database tracking (v1.1.1)
 - [x] ✅ Task progress tracking backend (v1.1.1)
 - [x] ✅ Task history API endpoints (v1.1.1)
 - [x] ✅ Cancel/retry task API endpoints (v1.1.1)
-- [ ] Real-time Celery task status in UI (backend ready, UI pending)
-- [ ] Task progress bars for long-running operations (backend ready, UI pending)
-- [ ] Task history page with filtering and search (backend ready, template pending)
-- [ ] Cancel/retry failed tasks from UI (backend ready, UI buttons pending)
+- [x] ✅ Real-time Celery task status in UI (v1.1.1)
+- [x] ✅ Task progress bars for long-running operations (v1.1.1)
+- [x] ✅ Task history page with filtering and search (v1.1.1)
+- [x] ✅ Cancel/retry failed tasks from UI (v1.1.1)
 
 #### Advanced Monitoring
 - [x] ✅ Real-time stats updates (30-second polling)
