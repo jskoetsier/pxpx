@@ -57,7 +57,7 @@
                     <div style="color: var(--text-secondary); font-size: 0.875rem;">Opens in new window (requires Proxmox access)</div>
                 </div>
             </div>
-            <a href="https://{{ proxmox_host }}:8006/?console={{ vm_type }}&novnc=1&vmid={{ vmid }}&vmname={{ vm.name|urlencode }}&node={{ node_name }}&resize=scale&vncticket={{ console_ticket|urlencode }}"
+            <a href="https://{{ proxmox_host }}:8006/?console={{ vm_type }}&novnc=1&vmid={{ vmid }}&vmname={{ vm.name|urlencode }}&node={{ node_name }}&resize=scale"
                target="_blank"
                style="display: inline-block; padding: 1rem 2rem; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
                 <i class="bi bi-play-circle"></i> Open Proxmox Console
