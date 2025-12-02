@@ -1,0 +1,898 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Task History{% endblock %}
+{% block breadcrumb %}Tasks / History{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Filter Section */
+    .filter-section {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .filter-input {
+        background: rgba(26, 29, 46, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.625rem 0.875rem;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: var(--accent-purple);
+        background: rgba(26, 29, 46, 0.8);
+    }
+
+    .filter-button {
+        background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.625rem 1.5rem;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        align-self: flex-end;
+    }
+
+    .filter-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(139, 92, 246, 0.3);
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 12px;
+        padding: 1.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Task List Container */
+    .task-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    /* Task Card */
+    .task-card {
+        background: rgba(42, 47, 84, 0.6);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+        animation: slideInUp 0.4s ease-out;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .task-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+        border-color: rgba(139, 92, 246, 0.3);
+    }
+
+    .task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .task-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .task-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Progress Bar */
+    .progress-container {
+        margin: 1rem 0;
+    }
+
+    .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .progress-percentage {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .progress-bar-bg {
+        height: 8px;
+        background: rgba(26, 29, 46, 0.6);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
+        border-radius: 4px;
+        transition: width 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.875rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-SUCCESS {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-FAILURE {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-PENDING, .status-STARTED, .status-RETRY {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .status-REVOKED {
+        background: rgba(107, 114, 128, 0.2);
+        color: #9ca3af;
+        border: 1px solid rgba(107, 114, 128, 0.3);
+    }
+
+    .status-pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-SUCCESS .status-pulse {
+        background: #10b981;
+    }
+
+    .status-FAILURE .status-pulse {
+        background: #ef4444;
+    }
+
+    .status-PENDING .status-pulse,
+    .status-STARTED .status-pulse,
+    .status-RETRY .status-pulse {
+        background: #f59e0b;
+    }
+
+    .status-REVOKED .status-pulse {
+        background: #9ca3af;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    /* Action Buttons */
+    .task-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .action-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-retry {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .btn-retry:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-cancel {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+
+    /* Task Details */
+    .task-details {
+        background: rgba(26, 29, 46, 0.4);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .task-error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        color: #ef4444;
+        font-family: 'Courier New', monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    /* Execution Time Badge */
+    .execution-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(139, 92, 246, 0.15);
+        color: var(--accent-purple);
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+
+    /* VM/Cluster Links */
+    .entity-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(59, 130, 246, 0.1);
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        color: var(--accent-blue);
+        font-size: 0.875rem;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .entity-link:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateX(4px);
+    }
+
+    /* Empty State */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+
+    .empty-icon {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    .empty-icon i {
+        font-size: 3rem;
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .empty-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-description {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        max-width: 400px;
+    }
+
+    /* Pagination */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+    }
+
+    .page-link {
+        padding: 0.5rem 1rem;
+        background: rgba(42, 47, 84, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: var(--text-primary);
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .page-link:hover {
+        background: rgba(139, 92, 246, 0.2);
+        border-color: var(--accent-purple);
+        transform: translateY(-2px);
+    }
+
+    .page-link.active {
+        background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
+        border-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header Section with Stats -->
+<div class="filter-section">
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-list-task" style="font-size: 1.5rem;"></i>
+        </div>
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Task History</h2>
+            <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Monitor and manage all background tasks</p>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card" style="border-left: 4px solid #8b5cf6;">
+            <div class="stat-value" style="color: #8b5cf6;">{{ total_tasks }}</div>
+            <div class="stat-label">Total Tasks</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+            <div class="stat-value" style="color: #f59e0b;">{{ running_tasks }}</div>
+            <div class="stat-label">Running</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-value" style="color: #10b981;">{{ success_tasks }}</div>
+            <div class="stat-label">Successful</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #ef4444;">
+            <div class="stat-value" style="color: #ef4444;">{{ failed_tasks }}</div>
+            <div class="stat-label">Failed</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" action="{% url 'task_list' %}">
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-funnel"></i> State
+                </label>
+                <select name="state" class="filter-input">
+                    <option value="">All States</option>
+                    <option value="PENDING" {% if state_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+                    <option value="STARTED" {% if state_filter == 'STARTED' %}selected{% endif %}>Started</option>
+                    <option value="SUCCESS" {% if state_filter == 'SUCCESS' %}selected{% endif %}>Success</option>
+                    <option value="FAILURE" {% if state_filter == 'FAILURE' %}selected{% endif %}>Failure</option>
+                    <option value="RETRY" {% if state_filter == 'RETRY' %}selected{% endif %}>Retry</option>
+                    <option value="REVOKED" {% if state_filter == 'REVOKED' %}selected{% endif %}>Revoked</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-gear"></i> Task Name
+                </label>
+                <input type="text" name="task_name" class="filter-input" placeholder="e.g. sync_cluster_data" value="{{ task_name_filter }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-search"></i> Search
+                </label>
+                <input type="text" name="search" class="filter-input" placeholder="VM name, cluster name, or task ID" value="{{ search }}">
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="submit" class="filter-button">
+                <i class="bi bi-funnel"></i> Apply Filters
+            </button>
+            <a href="{% url 'task_list' %}" class="filter-button" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                <i class="bi bi-x-circle"></i> Clear
+            </a>
+            <button type="button" onclick="refreshTasks()" class="filter-button" style="background: rgba(34, 211, 238, 0.2); color: #22d3ee; margin-left: auto;">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Task List -->
+<div class="task-list">
+    {% for task in tasks %}
+    <div class="task-card" data-task-id="{{ task.task_id }}">
+        <div class="task-header">
+            <div style="flex: 1;">
+                <div class="task-title">{{ task.task_name }}</div>
+                <div class="task-meta">
+                    <div class="meta-item">
+                        <i class="bi bi-calendar"></i>
+                        <span>{{ task.created_at|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-clock"></i>
+                        <span>{{ task.created_at|date:"H:i:s" }}</span>
+                    </div>
+                    {% if task.user %}
+                    <div class="meta-item">
+                        <i class="bi bi-person-circle"></i>
+                        <span>{{ task.user.username }}</span>
+                    </div>
+                    {% endif %}
+                    {% if task.execution_time %}
+                    <div class="meta-item">
+                        <span class="execution-time">
+                            <i class="bi bi-stopwatch"></i>
+                            {{ task.execution_time }}s
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <span class="status-badge status-{{ task.state }}">
+                    <span class="status-pulse"></span>
+                    {{ task.state }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Progress Bar for Running Tasks -->
+        {% if task.is_running %}
+        <div class="progress-container">
+            <div class="progress-header">
+                <div class="progress-label">
+                    <i class="bi bi-hourglass-split"></i>
+                    {{ task.progress_message|default:"Processing..." }}
+                </div>
+                <div class="progress-percentage">{{ task.progress }}%</div>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width: {{ task.progress }}%"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Task Entities -->
+        {% if task.vm or task.cluster %}
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            {% if task.vm %}
+            <a href="{% url 'vm_detail' task.vm.id %}" class="entity-link">
+                <i class="bi bi-box"></i>
+                {{ task.vm.name }}
+            </a>
+            {% endif %}
+            {% if task.cluster %}
+            <a href="{% url 'cluster_detail' task.cluster.id %}" class="entity-link" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">
+                <i class="bi bi-hdd-rack"></i>
+                {{ task.cluster.name }}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Task Result -->
+        {% if task.result and task.state == 'SUCCESS' %}
+        <div class="task-details">
+            <i class="bi bi-check-circle"></i>
+            {{ task.result }}
+        </div>
+        {% endif %}
+
+        <!-- Task Error -->
+        {% if task.state == 'FAILURE' and task.result %}
+        <div class="task-error">
+            <strong><i class="bi bi-exclamation-triangle"></i> Error:</strong>
+            {{ task.result }}
+            {% if task.traceback %}
+            <details style="margin-top: 0.5rem;">
+                <summary style="cursor: pointer; color: #fbbf24;">View Traceback</summary>
+                <pre style="margin-top: 0.5rem; font-size: 0.75rem;">{{ task.traceback }}</pre>
+            </details>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="task-actions">
+            {% if task.state == 'FAILURE' or task.state == 'REVOKED' %}
+            <button class="action-btn btn-retry" onclick="retryTask('{{ task.task_id }}')">
+                <i class="bi bi-arrow-clockwise"></i>
+                Retry
+            </button>
+            {% endif %}
+            {% if task.is_running %}
+            <button class="action-btn btn-cancel" onclick="cancelTask('{{ task.task_id }}')">
+                <i class="bi bi-x-circle"></i>
+                Cancel
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-inbox"></i>
+        </div>
+        <h3 class="empty-title">No Tasks Found</h3>
+        <p class="empty-description">
+            {% if search or state_filter or task_name_filter %}
+                No tasks match your current filters. Try adjusting your search criteria.
+            {% else %}
+                No background tasks have been executed yet. Tasks will appear here once operations are initiated.
+            {% endif %}
+        </p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if tasks.has_other_pages %}
+<div class="pagination">
+    {% if tasks.has_previous %}
+    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if state_filter %}&state={{ state_filter }}{% endif %}{% if task_name_filter %}&task_name={{ task_name_filter }}{% endif %}" class="page-link">
+        <i class="bi bi-chevron-double-left"></i>
+    </a>
+    <a href="?page={{ tasks.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if state_filter %}&state={{ state_filter }}{% endif %}{% if task_name_filter %}&task_name={{ task_name_filter }}{% endif %}" class="page-link">
+        <i class="bi bi-chevron-left"></i>
+    </a>
+    {% endif %}
+
+    <span class="page-link active">Page {{ tasks.number }} of {{ tasks.paginator.num_pages }}</span>
+
+    {% if tasks.has_next %}
+    <a href="?page={{ tasks.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if state_filter %}&state={{ state_filter }}{% endif %}{% if task_name_filter %}&task_name={{ task_name_filter }}{% endif %}" class="page-link">
+        <i class="bi bi-chevron-right"></i>
+    </a>
+    <a href="?page={{ tasks.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if state_filter %}&state={{ state_filter }}{% endif %}{% if task_name_filter %}&task_name={{ task_name_filter }}{% endif %}" class="page-link">
+        <i class="bi bi-chevron-double-right"></i>
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+// Auto-refresh running tasks every 5 seconds
+let refreshInterval;
+
+function startAutoRefresh() {
+    refreshInterval = setInterval(() => {
+        updateRunningTasks();
+    }, 5000);
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+}
+
+async function updateRunningTasks() {
+    try {
+        const response = await fetch('/api/tasks/running/');
+        const data = await response.json();
+        
+        data.tasks.forEach(task => {
+            const taskCard = document.querySelector(`[data-task-id="${task.task_id}"]`);
+            if (taskCard) {
+                // Update progress bar
+                const progressFill = taskCard.querySelector('.progress-bar-fill');
+                const progressPercentage = taskCard.querySelector('.progress-percentage');
+                const progressLabel = taskCard.querySelector('.progress-label');
+                
+                if (progressFill) {
+                    progressFill.style.width = `${task.progress}%`;
+                }
+                if (progressPercentage) {
+                    progressPercentage.textContent = `${task.progress}%`;
+                }
+                if (progressLabel && task.progress_message) {
+                    progressLabel.innerHTML = `<i class="bi bi-hourglass-split"></i> ${task.progress_message}`;
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error updating tasks:', error);
+    }
+}
+
+async function retryTask(taskId) {
+    if (!confirm('Are you sure you want to retry this task?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/tasks/${taskId}/retry/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification('Task retry initiated successfully', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.error || 'Failed to retry task', 'error');
+        }
+    } catch (error) {
+        showNotification('Error retrying task', 'error');
+        console.error('Error:', error);
+    }
+}
+
+async function cancelTask(taskId) {
+    if (!confirm('Are you sure you want to cancel this running task?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/tasks/${taskId}/cancel/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification('Task canceled successfully', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.error || 'Failed to cancel task', 'error');
+        }
+    } catch (error) {
+        showNotification('Error canceling task', 'error');
+        console.error('Error:', error);
+    }
+}
+
+function refreshTasks() {
+    location.reload();
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showNotification(message, type) {
+    // Use the existing notification system from base template
+    console.log(`${type}: ${message}`);
+    alert(message);
+}
+
+// Start auto-refresh if there are running tasks
+if (document.querySelectorAll('.status-STARTED, .status-PENDING, .status-RETRY').length > 0) {
+    startAutoRefresh();
+}
+
+// Stop auto-refresh when navigating away
+window.addEventListener('beforeunload', stopAutoRefresh);
+</script>
+{% endblock %}
+    }
+    return cookieValue;
+}
+
+function showNotification(message, type) {
+    // Simple notification function - can be replaced with toast library
+    const bgColor = type === 'success' ? '#10b981' : '#ef4444';
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${bgColor};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Start auto-refresh when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const hasRunningTasks = document.querySelectorAll('[data-task-id]').length > 0;
+    if (hasRunningTasks) {
+        startAutoRefresh();
+    }
+});
+
+// Stop auto-refresh when page is hidden
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopAutoRefresh();
+    } else {
+        const hasRunningTasks = document.querySelectorAll('[data-task-id]').length > 0;
+        if (hasRunningTasks) {
+            startAutoRefresh();
+        }
+    }
+});
+</script>
+{% endblock %}
