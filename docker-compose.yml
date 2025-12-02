@@ -39,15 +39,8 @@ services:
       - media_volume:/app/media
     ports:
       - "8000:8000"
-    environment:
-      - SECRET_KEY=django-insecure-change-this-in-production-12345678901234567890
-      - DEBUG=True
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-      - DATABASE_URL=postgresql://pxmx_user:pxmx_password@db:5432/pxmx_db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - REDIS_URL=redis://redis:6379/0
-      - PROXMOX_VERIFY_SSL=False
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -60,14 +53,8 @@ services:
     command: celery -A pxmx worker --loglevel=info
     volumes:
       - .:/app
-    environment:
-      - SECRET_KEY=django-insecure-change-this-in-production-12345678901234567890
-      - DEBUG=True
-      - DATABASE_URL=postgresql://pxmx_user:pxmx_password@db:5432/pxmx_db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - REDIS_URL=redis://redis:6379/0
-      - PROXMOX_VERIFY_SSL=False
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
