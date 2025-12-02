@@ -1,9 +1,15 @@
-// Real-time sync functionality
+// Real-time sync functionality with continuous background polling
 class RealtimeSync {
     constructor() {
         this.syncingClusters = new Set();
-        this.pollInterval = null;
+        this.syncPollInterval = null;
+        this.backgroundPollInterval = null;
         this.toastContainer = this.createToastContainer();
+        this.pollRate = 30000; // 30 seconds for background polling
+        this.syncPollRate = 2000; // 2 seconds during active sync
+        
+        // Start background polling on page load
+        this.startBackgroundPolling();
     }
 
     createToastContainer() {
@@ -25,7 +31,7 @@ class RealtimeSync {
         return container;
     }
 
-    showToast(message, type = 'info') {
+    showToast(message, type = 'info', duration = 4000) {
         const toast = document.createElement('div');
         const colors = {
             success: 'linear-gradient(135deg, #10b981, #34d399)',
@@ -33,7 +39,7 @@ class RealtimeSync {
             info: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
             warning: 'linear-gradient(135deg, #f59e0b, #fbbf24)'
         };
-
+        
         toast.style.cssText = `
             background: ${colors[type] || colors.info};
             color: white;
@@ -47,21 +53,21 @@ class RealtimeSync {
             gap: 12px;
             font-weight: 500;
         `;
-
+        
         const icons = {
             success: '<i class="bi bi-check-circle-fill"></i>',
             error: '<i class="bi bi-x-circle-fill"></i>',
             info: '<i class="bi bi-info-circle-fill"></i>',
             warning: '<i class="bi bi-exclamation-triangle-fill"></i>'
         };
-
+        
         toast.innerHTML = `${icons[type] || icons.info} <span>${message}</span>`;
         this.toastContainer.appendChild(toast);
-
+        
         setTimeout(() => {
             toast.style.animation = 'slideOut 0.3s ease-in';
             setTimeout(() => toast.remove(), 300);
-        }, 4000);
+        }, duration);
     }
 
     async syncCluster(clusterId, button = null) {
@@ -71,7 +77,7 @@ class RealtimeSync {
         }
 
         this.syncingClusters.add(clusterId);
-
+        
         // Update button state
         if (button) {
             const originalHTML = button.innerHTML;
@@ -89,18 +95,18 @@ class RealtimeSync {
             });
 
             const data = await response.json();
-
+            
             if (data.status === 'started') {
                 this.showToast(data.message, 'success');
-
-                // Start polling for updates
-                this.startPolling(clusterId);
+                
+                // Switch to fast polling during sync
+                this.startSyncPolling(clusterId);
             }
         } catch (error) {
             console.error('Sync error:', error);
             this.showToast('Failed to initiate sync', 'error');
             this.syncingClusters.delete(clusterId);
-
+            
             if (button) {
                 button.disabled = false;
                 button.innerHTML = button.dataset.originalHTML;
@@ -126,22 +132,22 @@ class RealtimeSync {
             });
 
             const data = await response.json();
-
+            
             if (data.status === 'started') {
                 this.showToast(data.message, 'success');
-
+                
                 // Add all cluster IDs to syncing set
                 data.tasks.forEach(task => {
                     this.syncingClusters.add(task.cluster_id);
                 });
-
-                // Start global polling
-                this.startPolling();
+                
+                // Switch to fast polling during sync
+                this.startSyncPolling();
             }
         } catch (error) {
             console.error('Sync error:', error);
             this.showToast('Failed to initiate sync', 'error');
-
+            
             if (button) {
                 button.disabled = false;
                 button.innerHTML = button.dataset.originalHTML;
@@ -149,67 +155,117 @@ class RealtimeSync {
         }
     }
 
-    startPolling(clusterId = null) {
-        // Clear existing poll if any
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
+    startSyncPolling(clusterId = null) {
+        // Clear existing sync poll if any
+        if (this.syncPollInterval) {
+            clearInterval(this.syncPollInterval);
         }
 
-        // Poll every 2 seconds
-        this.pollInterval = setInterval(async () => {
+        // Fast poll every 2 seconds during sync
+        this.syncPollInterval = setInterval(async () => {
             if (this.syncingClusters.size === 0) {
-                clearInterval(this.pollInterval);
-                this.pollInterval = null;
+                clearInterval(this.syncPollInterval);
+                this.syncPollInterval = null;
                 return;
             }
 
             // Refresh dashboard stats
             await this.refreshDashboard();
-
-            // Check if sync is complete (simple timeout-based for now)
-            // In a production app, you'd check Celery task status
-            setTimeout(() => {
-                this.syncingClusters.clear();
-                this.showToast('Sync completed!', 'success');
-
-                // Re-enable all sync buttons
-                document.querySelectorAll('[data-sync-button]').forEach(btn => {
-                    btn.disabled = false;
-                    if (btn.dataset.originalHTML) {
-                        btn.innerHTML = btn.dataset.originalHTML;
-                    }
-                });
-
-                // Reload page to show updated data
-                setTimeout(() => window.location.reload(), 1000);
-            }, 5000); // Assume sync takes ~5 seconds
-        }, 2000);
+        }, this.syncPollRate);
+        
+        // Assume sync completes after 5 seconds
+        setTimeout(() => {
+            this.syncingClusters.clear();
+            this.showToast('Sync completed! Refreshing...', 'success');
+            
+            // Re-enable all sync buttons
+            document.querySelectorAll('[data-sync-button]').forEach(btn => {
+                btn.disabled = false;
+                if (btn.dataset.originalHTML) {
+                    btn.innerHTML = btn.dataset.originalHTML;
+                }
+            });
+            
+            // Clear sync polling
+            if (this.syncPollInterval) {
+                clearInterval(this.syncPollInterval);
+                this.syncPollInterval = null;
+            }
+            
+            // Reload page to show updated data
+            setTimeout(() => window.location.reload(), 1000);
+        }, 5000);
     }
 
-    async refreshDashboard() {
+    startBackgroundPolling() {
+        // Initial refresh
+        this.refreshDashboard(true);
+        
+        // Poll every 30 seconds in the background
+        this.backgroundPollInterval = setInterval(async () => {
+            await this.refreshDashboard(true);
+        }, this.pollRate);
+        
+        console.log('Background polling started (every 30 seconds)');
+    }
+
+    stopBackgroundPolling() {
+        if (this.backgroundPollInterval) {
+            clearInterval(this.backgroundPollInterval);
+            this.backgroundPollInterval = null;
+            console.log('Background polling stopped');
+        }
+    }
+
+    async refreshDashboard(silent = false) {
         try {
             const response = await fetch('/api/dashboard/stats/');
             const data = await response.json();
-
+            
             // Update dashboard stats if elements exist
-            if (document.getElementById('total-vms')) {
-                document.getElementById('total-vms').textContent = data.stats.total_vms;
+            this.updateElement('total-vms', data.stats.total_vms);
+            this.updateElement('running-vms', data.stats.running_vms);
+            this.updateElement('stopped-vms', data.stats.stopped_vms);
+            this.updateElement('total-nodes', data.stats.total_nodes);
+            this.updateElement('online-nodes', data.stats.online_nodes);
+            this.updateElement('avg-cpu', data.stats.avg_cpu + '%');
+            this.updateElement('avg-ram', data.stats.avg_ram + '%');
+            
+            // Update last updated indicator
+            this.updateLastRefreshTime();
+            
+            if (!silent) {
+                console.log('Dashboard stats refreshed');
             }
-            if (document.getElementById('running-vms')) {
-                document.getElementById('running-vms').textContent = data.stats.running_vms;
-            }
-            if (document.getElementById('stopped-vms')) {
-                document.getElementById('stopped-vms').textContent = data.stats.stopped_vms;
-            }
-            if (document.getElementById('total-nodes')) {
-                document.getElementById('total-nodes').textContent = data.stats.total_nodes;
-            }
-            if (document.getElementById('online-nodes')) {
-                document.getElementById('online-nodes').textContent = data.stats.online_nodes;
-            }
-
+            
         } catch (error) {
-            console.error('Failed to refresh dashboard:', error);
+            if (!silent) {
+                console.error('Failed to refresh dashboard:', error);
+            }
+        }
+    }
+
+    updateElement(id, value) {
+        const element = document.getElementById(id);
+        if (element && element.textContent !== String(value)) {
+            element.textContent = value;
+            // Add pulse animation on update
+            element.style.animation = 'pulse 0.5s ease-in-out';
+            setTimeout(() => {
+                element.style.animation = '';
+            }, 500);
+        }
+    }
+
+    updateLastRefreshTime() {
+        const timeElement = document.getElementById('last-refresh-time');
+        if (timeElement) {
+            const now = new Date();
+            timeElement.textContent = now.toLocaleTimeString();
+            timeElement.style.color = 'var(--accent-green)';
+            setTimeout(() => {
+                timeElement.style.color = 'var(--text-secondary)';
+            }, 1000);
         }
     }
 
@@ -217,11 +273,10 @@ class RealtimeSync {
         try {
             const response = await fetch(`/api/cluster/${clusterId}/stats/`);
             const data = await response.json();
-
+            
             // Update cluster page stats if elements exist
-            // This can be customized based on your page structure
             console.log('Cluster stats updated:', data);
-
+            
         } catch (error) {
             console.error('Failed to refresh cluster stats:', error);
         }
@@ -244,7 +299,7 @@ style.textContent = `
             opacity: 1;
         }
     }
-
+    
     @keyframes slideOut {
         from {
             transform: translateX(0);
@@ -255,7 +310,7 @@ style.textContent = `
             opacity: 0;
         }
     }
-
+    
     @keyframes spin {
         from {
             transform: rotate(0deg);
@@ -264,7 +319,16 @@ style.textContent = `
             transform: rotate(360deg);
         }
     }
-
+    
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+    }
+    
     .spin {
         animation: spin 1s linear infinite;
         display: inline-block;
@@ -274,3 +338,8 @@ document.head.appendChild(style);
 
 // Export for use in HTML
 window.realtimeSync = realtimeSync;
+
+// Stop polling when user leaves the page
+window.addEventListener('beforeunload', () => {
+    realtimeSync.stopBackgroundPolling();
+});
