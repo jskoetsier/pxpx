@@ -83,6 +83,21 @@ def sync_vms_for_node(node_id):
                 vm_config = prox.nodes(node.name).qemu(vmid).config.get()
                 vm_status = prox.nodes(node.name).qemu(vmid).status.current.get()
 
+                # Calculate disk size from config
+                disk_gb = 0
+                # Check for virtio disks (virtio0, virtio1, etc.)
+                for key, value in vm_config.items():
+                    if key.startswith(('virtio', 'scsi', 'sata', 'ide')):
+                        # Parse disk size from string like "local:100/vm-100-disk-0.qcow2,size=32G"
+                        if isinstance(value, str) and 'size=' in value:
+                            size_part = value.split('size=')[1].split(',')[0]
+                            if 'G' in size_part:
+                                disk_gb += float(size_part.replace('G', ''))
+                            elif 'T' in size_part:
+                                disk_gb += float(size_part.replace('T', '')) * 1024
+                            elif 'M' in size_part:
+                                disk_gb += float(size_part.replace('M', '')) / 1024
+
                 VirtualMachine.objects.update_or_create(
                     node=node,
                     vmid=vmid,
@@ -92,6 +107,7 @@ def sync_vms_for_node(node_id):
                         "status": vm_data.get("status", "unknown"),
                         "cpu_cores": vm_config.get("cores", 1),
                         "ram_mb": vm_config.get("memory", 512),
+                        "disk_gb": round(disk_gb, 2),
                         "cpu_usage": round(vm_status.get("cpu", 0) * 100, 2),
                         "uptime": vm_status.get("uptime", 0),
                         "last_synced": timezone.now(),
@@ -110,6 +126,19 @@ def sync_vms_for_node(node_id):
                 container_config = prox.nodes(node.name).lxc(vmid).config.get()
                 container_status = prox.nodes(node.name).lxc(vmid).status.current.get()
 
+                # Calculate disk size from config
+                disk_gb = 0
+                # LXC containers use rootfs
+                rootfs = container_config.get('rootfs', '')
+                if isinstance(rootfs, str) and 'size=' in rootfs:
+                    size_part = rootfs.split('size=')[1].split(',')[0]
+                    if 'G' in size_part:
+                        disk_gb = float(size_part.replace('G', ''))
+                    elif 'T' in size_part:
+                        disk_gb = float(size_part.replace('T', '')) * 1024
+                    elif 'M' in size_part:
+                        disk_gb = float(size_part.replace('M', '')) / 1024
+
                 VirtualMachine.objects.update_or_create(
                     node=node,
                     vmid=vmid,
@@ -119,6 +148,7 @@ def sync_vms_for_node(node_id):
                         "status": container_data.get("status", "unknown"),
                         "cpu_cores": container_config.get("cores", 1),
                         "ram_mb": container_config.get("memory", 512),
+                        "disk_gb": round(disk_gb, 2),
                         "cpu_usage": round(container_status.get("cpu", 0) * 100, 2),
                         "uptime": container_status.get("uptime", 0),
                         "last_synced": timezone.now(),
