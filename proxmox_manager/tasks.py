@@ -9,6 +9,20 @@ from .models import AuditLog, Node, ProxmoxCluster, VirtualMachine
 logger = logging.getLogger(__name__)
 
 
+@shared_task
+def sync_all_clusters():
+    """Periodic task to sync all active clusters"""
+    try:
+        clusters = ProxmoxCluster.objects.filter(is_active=True)
+        for cluster in clusters:
+            sync_cluster_data.delay(cluster.id)
+        logger.info(f"Started sync for {clusters.count()} clusters")
+        return f"Synced {clusters.count()} clusters"
+    except Exception as e:
+        logger.error(f"Error in sync_all_clusters: {str(e)}")
+        return f"Error: {str(e)}"
+
+
 def get_proxmox_connection(cluster):
     return ProxmoxAPI(
         cluster.api_url.replace("https://", "").replace("http://", "").split(":")[0],
