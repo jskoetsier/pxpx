@@ -173,14 +173,142 @@ This is the first version, so no migration path is needed. To start using PXMX:
 
 ---
 
+## [1.1.0] - 2025-01-02
+
+### 🚀 Major Release - Enhanced Monitoring & Automation
+
+This release focuses on production readiness with HTTPS/SSL support, automatic syncing, console access, and comprehensive real-time statistics across all pages.
+
+### ✨ Added
+
+#### HTTPS/SSL Support
+- **Let's Encrypt Integration**: Automatic SSL certificate provisioning via certbot
+- **Nginx Reverse Proxy**: Production-ready reverse proxy configuration on port 443
+- **Auto-Renewal**: Systemd timer for automatic certificate renewal (90-day expiry)
+- **HTTP Redirect**: Automatic HTTP → HTTPS redirection for security
+- **Deployment**: Live on `https://manage.koetsier.it` with valid SSL certificate (expires March 2, 2026)
+
+#### Automatic Disk Size Syncing
+- **Celery Beat Scheduler**: Automated periodic tasks every 5 minutes
+- **VM Sync Task**: Automatic synchronization of all VMs from all Proxmox clusters
+- **Disk Size Tracking**: Accurate disk size display (32GB, 60GB, 250GB, etc.)
+- **Background Processing**: Non-blocking sync operations via Celery workers
+- **Commit**: `8684ed8`
+
+#### Console Access Implementation
+- **Direct Console Links**: One-click access to Proxmox web console (opens in new window)
+- **SSH Tunnel Instructions**: Step-by-step guide for firewalled environments
+- **Console Page**: New dedicated console access page at `/vm/<id>/console/`
+- **Template**: `/templates/proxmox_manager/vm_console.html`
+- **Commits**: `b70ce65`, `76b6764`, `8f49df3`
+
+#### Real-Time Stats - Cluster Detail Page
+- **JavaScript Polling**: Automatic stats refresh every 30 seconds
+- **API Endpoint**: `/api/cluster/{cluster_id}/stats/` for cluster-specific stats
+- **Live Updates**: Node count, VM count, online nodes, running VMs update without page reload
+- **Smooth Animations**: Pulse effects on stat changes
+- **Commits**: `390e6bd`, `59cb427`
+
+#### Real-Time Stats - Right Sidebar (All Pages)
+- **Universal Stats**: Sidebar stats now visible on ALL pages including:
+  - `/vms/` - VM list page
+  - `/vms/<id>/` - VM detail page
+  - `/clusters/` - Cluster list page
+  - `/clusters/<id>/` - Cluster detail page
+  - `/nodes/<id>/` - Node detail page
+  - `/audit-log/` - Audit log page
+- **Context Variables**: All views now pass required stats context to templates
+- **JavaScript Enhancement**: Background polling updates sidebar stats every 30 seconds
+- **Template IDs**: Sidebar elements now have unique IDs for JavaScript updates:
+  - `sidebar-clusters`, `sidebar-nodes`, `sidebar-total-vms`, `sidebar-running-vms`
+  - `sidebar-online`, `sidebar-total`, `sidebar-cpu`, `sidebar-ram`
+- **Graceful Fallbacks**: Default filters prevent errors when stats are unavailable
+- **Commits**: `79e7ccd`, `be85f19`
+
+### 🔧 Technical Improvements
+
+#### Backend Enhancements
+- **Views Context**: Updated all views to pass comprehensive stats context
+- **API Endpoints**: New cluster stats API for real-time data fetching
+- **Celery Beat**: Production-ready periodic task scheduler
+- **Database Aggregations**: Efficient CPU/RAM average calculations using Django ORM
+
+#### Frontend Enhancements
+- **JavaScript Refactor**: `/static/js/realtime-sync.js` now updates both dashboard and sidebar
+- **Polling Strategy**: Smart polling intervals (30s background, fast during sync)
+- **Pulse Animations**: Visual feedback for stat updates
+- **Error Handling**: Graceful degradation when API calls fail
+
+#### Deployment & Infrastructure
+- **Production Stack**: Podman Compose with all services running:
+  - `nginx` - Reverse proxy with SSL (ports 443, 80)
+  - `pxmx_web` - Django/Gunicorn
+  - `pxmx_celery` - Async task worker
+  - `pxmx_celery_beat` - Periodic scheduler
+  - `pxmx_db` - PostgreSQL
+  - `pxmx_redis` - Redis cache/broker
+- **Ubuntu 25.04**: Production server deployment
+- **Systemd Integration**: Service management and auto-start
+
+### 🐛 Bug Fixes
+
+- **Sidebar Stats Disappearing**: Fixed stats not showing on VM list, cluster list, node detail, and audit log pages
+- **Context Variables**: Added missing context variables to all view functions
+- **Template Safety**: Added `|default` filters to prevent template errors when stats are unavailable
+- **JavaScript Scope**: Fixed sidebar update functionality to work across all pages
+
+### 🔐 Security
+
+- **HTTPS Only**: All traffic encrypted with Let's Encrypt SSL certificates
+- **Secure Headers**: Nginx configured with security best practices
+- **Certificate Auto-Renewal**: No manual intervention required for certificate expiry
+
+### 📊 Performance
+
+- **Efficient Polling**: Only updates stats when data changes
+- **Minimal API Calls**: Smart caching and background updates
+- **Database Optimization**: Aggregate queries for stats calculations
+- **Redis Caching**: Fast data retrieval for frequently accessed stats
+
+### 📚 Documentation
+
+- **Context Summary**: Comprehensive project status documentation
+- **Deployment Guide**: Production deployment instructions
+- **Console Access Guide**: User instructions for VM console access
+
+### 🎯 Production Status
+
+**All features fully operational on https://manage.koetsier.it**:
+- ✅ Dashboard with real-time stats (30s polling)
+- ✅ VM List with sidebar stats
+- ✅ VM Detail with sidebar stats and console access
+- ✅ Cluster List with sidebar stats
+- ✅ Cluster Detail with real-time stats
+- ✅ Node Detail with sidebar stats
+- ✅ Audit Log with sidebar stats
+- ✅ Automatic syncing every 5 minutes
+- ✅ HTTPS/SSL with auto-renewal
+
+### 🔄 Breaking Changes
+
+None - this release is fully backward compatible with v1.0.0.
+
+### ⚠️ Known Issues
+
+- Console access requires direct network access to Proxmox nodes or SSH tunnel setup
+- NoVNC embedded console not implemented (simplified to direct links)
+- Background polling rate is fixed at 30 seconds (will be configurable in future release)
+- No bulk VM operations yet (planned for v1.2.0)
+
+---
+
 ## [Unreleased]
 
 ### Planned Features
 See ROADMAP.md for upcoming features and improvements.
 
 ### Known Issues
-- Background polling rate is fixed at 30 seconds (will be configurable in future release)
-- Celery task status not exposed in UI (planned for v1.1.0)
+- Celery task status not exposed in UI (planned for v1.2.0)
 - No bulk VM operations yet (planned for v1.2.0)
 
 ---

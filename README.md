@@ -10,16 +10,20 @@ A comprehensive Django-based web application for managing multiple Proxmox clust
 - **Multi-Cluster Management**: Connect and manage multiple Proxmox clusters from one dashboard
 - **Unified VM Control**: Start, stop, reboot, and shutdown VMs across all clusters
 - **Live Migration**: Migrate VMs between nodes with online/offline options
-- **Resource Monitoring**: Real-time CPU, RAM, and disk usage statistics
+- **Resource Monitoring**: Real-time CPU, RAM, and disk usage statistics with 30-second polling
 - **Snapshot Management**: Create and manage VM snapshots
 - **Audit Logging**: Track all administrative actions with detailed logs
+- **Console Access**: Direct links to Proxmox web console with SSH tunnel instructions
+- **Automatic Syncing**: Celery Beat scheduler syncs all VMs every 5 minutes
 
 ### Dashboard Features
-- Aggregate statistics across all clusters
-- Node health visualization
+- Aggregate statistics across all clusters with real-time updates
+- Node health visualization with live status
 - Recent activity feed
 - Resource usage graphs
 - Load balancing suggestions
+- Universal sidebar stats on all pages
+- Smooth animations and pulse effects on data updates
 
 ## Technology Stack
 
