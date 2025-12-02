@@ -19,6 +19,7 @@ crispy-bootstrap5==2024.2
 
 # Production Server
 gunicorn==21.2.0
+whitenoise==6.6.0
 
 # Security
 cryptography==42.0.2
