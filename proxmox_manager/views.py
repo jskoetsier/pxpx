@@ -356,3 +356,77 @@ def node_detail(request, node_id):
     }
 
     return render(request, "proxmox_manager/node_detail.html", context)
+
+
+@login_required
+def vm_console(request, vm_id):
+    vm = get_object_or_404(VirtualMachine, id=vm_id)
+
+    # Get console connection details from Proxmox
+    try:
+        proxmox = vm.node.cluster.get_proxmox_connection()
+        node_name = vm.node.name
+
+        # Create console ticket
+        if vm.vm_type == "qemu":
+            console_data = proxmox.nodes(node_name).qemu(vm.vmid).vncproxy.post()
+        else:  # lxc
+            console_data = proxmox.nodes(node_name).lxc(vm.vmid).vncproxy.post()
+
+        # Get ticket for authentication
+        ticket = console_data["ticket"]
+        port = console_data["port"]
+
+        # Build console URL
+        console_url = f"https://{vm.node.cluster.api_url.replace('https://', '').split(':')[0]}:{port}/?vncticket={ticket}"
+
+        context = {
+            "vm": vm,
+            "console_ticket": ticket,
+            "console_port": port,
+            "proxmox_host": vm.node.cluster.api_url.replace("https://", "")
+            .replace(":8006", "")
+            .split(":")[0],
+            "node_name": node_name,
+            "vmid": vm.vmid,
+            "vm_type": vm.vm_type,
+        }
+
+        return render(request, "proxmox_manager/vm_console.html", context)
+
+    except Exception as e:
+        messages.error(request, f"Failed to open console: {str(e)}")
+        return redirect("vm_detail", vm_id=vm_id)
+
+
+@login_required
+def vm_console_proxy(request, vm_id):
+    """Proxy endpoint for noVNC websocket connection"""
+    vm = get_object_or_404(VirtualMachine, id=vm_id)
+
+    try:
+        proxmox = vm.node.cluster.get_proxmox_connection()
+        node_name = vm.node.name
+
+        # Create VNC websocket
+        if vm.vm_type == "qemu":
+            vncwebsocket = (
+                proxmox.nodes(node_name)
+                .qemu(vm.vmid)
+                .vncwebsocket.get(
+                    port=request.GET.get("port"), vncticket=request.GET.get("vncticket")
+                )
+            )
+        else:  # lxc
+            vncwebsocket = (
+                proxmox.nodes(node_name)
+                .lxc(vm.vmid)
+                .vncwebsocket.get(
+                    port=request.GET.get("port"), vncticket=request.GET.get("vncticket")
+                )
+            )
+
+        return JsonResponse(vncwebsocket)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

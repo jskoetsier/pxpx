@@ -7,7 +7,7 @@ class RealtimeSync {
         this.toastContainer = this.createToastContainer();
         this.pollRate = 30000; // 30 seconds for background polling
         this.syncPollRate = 2000; // 2 seconds during active sync
-        
+
         // Start background polling on page load
         this.startBackgroundPolling();
     }
@@ -39,7 +39,7 @@ class RealtimeSync {
             info: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
             warning: 'linear-gradient(135deg, #f59e0b, #fbbf24)'
         };
-        
+
         toast.style.cssText = `
             background: ${colors[type] || colors.info};
             color: white;
@@ -53,17 +53,17 @@ class RealtimeSync {
             gap: 12px;
             font-weight: 500;
         `;
-        
+
         const icons = {
             success: '<i class="bi bi-check-circle-fill"></i>',
             error: '<i class="bi bi-x-circle-fill"></i>',
             info: '<i class="bi bi-info-circle-fill"></i>',
             warning: '<i class="bi bi-exclamation-triangle-fill"></i>'
         };
-        
+
         toast.innerHTML = `${icons[type] || icons.info} <span>${message}</span>`;
         this.toastContainer.appendChild(toast);
-        
+
         setTimeout(() => {
             toast.style.animation = 'slideOut 0.3s ease-in';
             setTimeout(() => toast.remove(), 300);
@@ -77,7 +77,7 @@ class RealtimeSync {
         }
 
         this.syncingClusters.add(clusterId);
-        
+
         // Update button state
         if (button) {
             const originalHTML = button.innerHTML;
@@ -95,10 +95,10 @@ class RealtimeSync {
             });
 
             const data = await response.json();
-            
+
             if (data.status === 'started') {
                 this.showToast(data.message, 'success');
-                
+
                 // Switch to fast polling during sync
                 this.startSyncPolling(clusterId);
             }
@@ -106,7 +106,7 @@ class RealtimeSync {
             console.error('Sync error:', error);
             this.showToast('Failed to initiate sync', 'error');
             this.syncingClusters.delete(clusterId);
-            
+
             if (button) {
                 button.disabled = false;
                 button.innerHTML = button.dataset.originalHTML;
@@ -132,22 +132,22 @@ class RealtimeSync {
             });
 
             const data = await response.json();
-            
+
             if (data.status === 'started') {
                 this.showToast(data.message, 'success');
-                
+
                 // Add all cluster IDs to syncing set
                 data.tasks.forEach(task => {
                     this.syncingClusters.add(task.cluster_id);
                 });
-                
+
                 // Switch to fast polling during sync
                 this.startSyncPolling();
             }
         } catch (error) {
             console.error('Sync error:', error);
             this.showToast('Failed to initiate sync', 'error');
-            
+
             if (button) {
                 button.disabled = false;
                 button.innerHTML = button.dataset.originalHTML;
@@ -172,12 +172,12 @@ class RealtimeSync {
             // Refresh dashboard stats
             await this.refreshDashboard();
         }, this.syncPollRate);
-        
+
         // Assume sync completes after 5 seconds
         setTimeout(() => {
             this.syncingClusters.clear();
             this.showToast('Sync completed! Refreshing...', 'success');
-            
+
             // Re-enable all sync buttons
             document.querySelectorAll('[data-sync-button]').forEach(btn => {
                 btn.disabled = false;
@@ -185,13 +185,13 @@ class RealtimeSync {
                     btn.innerHTML = btn.dataset.originalHTML;
                 }
             });
-            
+
             // Clear sync polling
             if (this.syncPollInterval) {
                 clearInterval(this.syncPollInterval);
                 this.syncPollInterval = null;
             }
-            
+
             // Reload page to show updated data
             setTimeout(() => window.location.reload(), 1000);
         }, 5000);
@@ -200,12 +200,12 @@ class RealtimeSync {
     startBackgroundPolling() {
         // Initial refresh
         this.refreshDashboard(true);
-        
+
         // Poll every 30 seconds in the background
         this.backgroundPollInterval = setInterval(async () => {
             await this.refreshDashboard(true);
         }, this.pollRate);
-        
+
         console.log('Background polling started (every 30 seconds)');
     }
 
@@ -221,7 +221,7 @@ class RealtimeSync {
         try {
             const response = await fetch('/api/dashboard/stats/');
             const data = await response.json();
-            
+
             // Update dashboard stats if elements exist
             this.updateElement('total-vms', data.stats.total_vms);
             this.updateElement('running-vms', data.stats.running_vms);
@@ -230,14 +230,14 @@ class RealtimeSync {
             this.updateElement('online-nodes', data.stats.online_nodes);
             this.updateElement('avg-cpu', data.stats.avg_cpu + '%');
             this.updateElement('avg-ram', data.stats.avg_ram + '%');
-            
+
             // Update last updated indicator
             this.updateLastRefreshTime();
-            
+
             if (!silent) {
                 console.log('Dashboard stats refreshed');
             }
-            
+
         } catch (error) {
             if (!silent) {
                 console.error('Failed to refresh dashboard:', error);
@@ -273,10 +273,10 @@ class RealtimeSync {
         try {
             const response = await fetch(`/api/cluster/${clusterId}/stats/`);
             const data = await response.json();
-            
+
             // Update cluster page stats if elements exist
             console.log('Cluster stats updated:', data);
-            
+
         } catch (error) {
             console.error('Failed to refresh cluster stats:', error);
         }
@@ -299,7 +299,7 @@ style.textContent = `
             opacity: 1;
         }
     }
-    
+
     @keyframes slideOut {
         from {
             transform: translateX(0);
@@ -310,7 +310,7 @@ style.textContent = `
             opacity: 0;
         }
     }
-    
+
     @keyframes spin {
         from {
             transform: rotate(0deg);
@@ -319,7 +319,7 @@ style.textContent = `
             transform: rotate(360deg);
         }
     }
-    
+
     @keyframes pulse {
         0%, 100% {
             transform: scale(1);
@@ -328,7 +328,7 @@ style.textContent = `
             transform: scale(1.1);
         }
     }
-    
+
     .spin {
         animation: spin 1s linear infinite;
         display: inline-block;

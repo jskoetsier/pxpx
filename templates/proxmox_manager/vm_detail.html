@@ -170,10 +170,16 @@
                style="padding: 0.875rem 1.25rem; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
                 <i class="bi bi-camera"></i> Create Snapshot
             </a>
-            <a href="{{ vm.node.cluster.api_url }}/#v1:0:=qemu/{{ vm.vmid }}:4:5:=:=noVNC" target="_blank"
-               style="padding: 0.875rem 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: var(--text-primary); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+            {% if vm.status == 'running' %}
+            <a href="{% url 'vm_console' vm.id %}"
+               style="padding: 0.875rem 1.25rem; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
                 <i class="bi bi-terminal"></i> Open Console
             </a>
+            {% else %}
+            <div style="padding: 0.875rem 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: var(--text-secondary); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; justify-content: center; opacity: 0.5;">
+                <i class="bi bi-terminal"></i> Console (VM Offline)
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

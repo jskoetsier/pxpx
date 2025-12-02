@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}<a href="{% url 'vm_list' %}" style="color: var(--text-secondary); text-decoration: none;">VMs</a> / <a href="{% url 'vm_detail' vm.id %}" style="color: var(--text-secondary); text-decoration: none;">{{ vm.name }}</a> / Console{% endblock %}
+{% block page_title %}{{ vm.name }} - Console{% endblock %}
+
+{% block extra_css %}
+<style>
+    #console-container {
+        position: relative;
+        width: 100%;
+        height: calc(100vh - 200px);
+        min-height: 600px;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    #console-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    .console-controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: var(--bg-card);
+        border-radius: 12px;
+    }
+
+    .console-btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .console-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-fullscreen {
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+        color: white;
+    }
+
+    .btn-refresh {
+        background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+        color: white;
+    }
+
+    .btn-close {
+        background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+        color: white;
+    }
+
+    .console-status {
+        padding: 0.75rem 1.5rem;
+        background: rgba(74, 222, 128, 0.1);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+        border-radius: 8px;
+        color: var(--accent-green);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        transition: opacity 0.3s ease;
+    }
+
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(147, 51, 234, 0.2);
+        border-top-color: var(--accent-purple);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- VM Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white" style="font-size: 1.75rem;"></i>
+        </div>
+        <div>
+            <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0;">{{ vm.name }}</h2>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem;">
+                {{ vm.node.name }} • {{ vm.node.cluster.name }} • VMID: {{ vm.vmid }}
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        {% if vm.status == 'running' %}
+            <span class="badge badge-success" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Running
+            </span>
+        {% else %}
+            <span class="badge badge-warning" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> {{ vm.status|title }}
+            </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Console Controls -->
+<div class="console-controls">
+    <button onclick="toggleFullscreen()" class="console-btn btn-fullscreen">
+        <i class="bi bi-arrows-fullscreen"></i> Fullscreen
+    </button>
+    <button onclick="refreshConsole()" class="console-btn btn-refresh">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+    <a href="{% url 'vm_detail' vm.id %}" class="console-btn btn-close" style="text-decoration: none;">
+        <i class="bi bi-x-circle"></i> Close Console
+    </a>
+    <div style="flex: 1;"></div>
+    <div class="console-status">
+        <i class="bi bi-circle-fill" style="font-size: 0.5rem; animation: pulse 2s ease-in-out infinite;"></i>
+        Connected
+    </div>
+</div>
+
+<!-- Console Container -->
+<div id="console-container" class="task-card" style="padding: 0; margin-bottom: 2rem;">
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p style="color: white; margin-top: 1.5rem; font-size: 1.125rem;">Connecting to {{ vm.name }}...</p>
+    </div>
+    <iframe
+        id="console-iframe"
+        src="https://{{ proxmox_host }}:{{ console_port }}/?console={{ vm_type }}&novnc=1&vmid={{ vmid }}&vmname={{ vm.name }}&node={{ node_name }}&resize=scale&vncticket={{ console_ticket|urlencode }}"
+        allow="fullscreen"
+        onload="hideLoading()">
+    </iframe>
+</div>
+
+<!-- Console Info -->
+<div class="task-card">
+    <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">
+        <i class="bi bi-info-circle"></i> Console Information
+    </h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        <div>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">VM Type</div>
+            <div style="font-weight: 600;">{{ vm.vm_type|upper }}</div>
+        </div>
+        <div>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Console Type</div>
+            <div style="font-weight: 600;">noVNC (Browser-based)</div>
+        </div>
+        <div>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Connection</div>
+            <div style="font-weight: 600;">{{ proxmox_host }}:{{ console_port }}</div>
+        </div>
+        <div>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Session</div>
+            <div style="font-weight: 600;">Secure (Ticket-based)</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--accent-blue); border-radius: 8px;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem;">
+            <i class="bi bi-lightbulb"></i> Console Tips:
+        </div>
+        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
+            <li>Use fullscreen mode for better visibility</li>
+            <li>Click inside the console to send keyboard input</li>
+            <li>Right-click to access clipboard options (if supported)</li>
+            <li>Console sessions may timeout after inactivity</li>
+            <li>Refresh the console if connection is lost</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    function hideLoading() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.opacity = '0';
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 300);
+        }
+    }
+
+    function toggleFullscreen() {
+        const container = document.getElementById('console-container');
+        if (!document.fullscreenElement) {
+            container.requestFullscreen().catch(err => {
+                console.error('Error attempting to enable fullscreen:', err);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    function refreshConsole() {
+        const iframe = document.getElementById('console-iframe');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        loadingOverlay.style.display = 'flex';
+        loadingOverlay.style.opacity = '1';
+
+        iframe.src = iframe.src;
+    }
+
+    // Handle fullscreen change
+    document.addEventListener('fullscreenchange', () => {
+        const fullscreenBtn = document.querySelector('.btn-fullscreen');
+        if (document.fullscreenElement) {
+            fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit"></i> Exit Fullscreen';
+        } else {
+            fullscreenBtn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Fullscreen';
+        }
+    });
+</script>
+{% endblock %}

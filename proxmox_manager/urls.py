@@ -6,6 +6,12 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("vms/", views.vm_list, name="vm_list"),
     path("vms/<int:vm_id>/", views.vm_detail, name="vm_detail"),
+    path("vms/<int:vm_id>/console/", views.vm_console, name="vm_console"),
+    path(
+        "vms/<int:vm_id>/console/proxy/",
+        views.vm_console_proxy,
+        name="vm_console_proxy",
+    ),
     path(
         "vms/<int:vm_id>/power/<str:action>/",
         views.vm_power_control,
