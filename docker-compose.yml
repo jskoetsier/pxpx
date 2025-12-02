@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:15-alpine
+    image: docker.io/postgres:15-alpine
     container_name: pxmx_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -19,7 +19,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: docker.io/redis:7-alpine
     container_name: pxmx_redis
     ports:
       - "6379:6379"
