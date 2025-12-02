@@ -516,7 +516,7 @@ def vm_console_proxy(request, vm_id):
 
         return JsonResponse(vncwebsocket)
 
-      except Exception as e:
+    except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -539,10 +539,11 @@ def task_list(request):
     search = request.GET.get("search")
     if search:
         from django.db.models import Q
+
         tasks = tasks.filter(
-            Q(vm__name__icontains=search) |
-            Q(cluster__name__icontains=search) |
-            Q(task_id__icontains=search)
+            Q(vm__name__icontains=search)
+            | Q(cluster__name__icontains=search)
+            | Q(task_id__icontains=search)
         )
 
     # Pagination
@@ -557,7 +558,9 @@ def task_list(request):
 
     # Get task stats
     total_tasks = CeleryTask.objects.count()
-    running_tasks = CeleryTask.objects.filter(state__in=["PENDING", "STARTED", "RETRY"]).count()
+    running_tasks = CeleryTask.objects.filter(
+        state__in=["PENDING", "STARTED", "RETRY"]
+    ).count()
     success_tasks = CeleryTask.objects.filter(state="SUCCESS").count()
     failed_tasks = CeleryTask.objects.filter(state="FAILURE").count()
 
@@ -590,21 +593,25 @@ def get_task_status(request, task_id):
     """API endpoint to get task status"""
     try:
         task = CeleryTask.objects.get(task_id=task_id)
-        return JsonResponse({
-            "task_id": task.task_id,
-            "task_name": task.task_name,
-            "state": task.state,
-            "progress": task.progress,
-            "progress_message": task.progress_message,
-            "result": task.result,
-            "traceback": task.traceback,
-            "created_at": task.created_at.isoformat(),
-            "started_at": task.started_at.isoformat() if task.started_at else None,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-            "execution_time": task.execution_time,
-            "is_running": task.is_running,
-            "is_completed": task.is_completed,
-        })
+        return JsonResponse(
+            {
+                "task_id": task.task_id,
+                "task_name": task.task_name,
+                "state": task.state,
+                "progress": task.progress,
+                "progress_message": task.progress_message,
+                "result": task.result,
+                "traceback": task.traceback,
+                "created_at": task.created_at.isoformat(),
+                "started_at": task.started_at.isoformat() if task.started_at else None,
+                "completed_at": (
+                    task.completed_at.isoformat() if task.completed_at else None
+                ),
+                "execution_time": task.execution_time,
+                "is_running": task.is_running,
+                "is_completed": task.is_completed,
+            }
+        )
     except CeleryTask.DoesNotExist:
         return JsonResponse({"error": "Task not found"}, status=404)
 
@@ -618,17 +625,19 @@ def get_running_tasks(request):
 
     tasks_data = []
     for task in tasks:
-        tasks_data.append({
-            "task_id": task.task_id,
-            "task_name": task.task_name,
-            "state": task.state,
-            "progress": task.progress,
-            "progress_message": task.progress_message,
-            "vm_name": task.vm.name if task.vm else None,
-            "vm_id": task.vm.id if task.vm else None,
-            "cluster_name": task.cluster.name if task.cluster else None,
-            "created_at": task.created_at.isoformat(),
-        })
+        tasks_data.append(
+            {
+                "task_id": task.task_id,
+                "task_name": task.task_name,
+                "state": task.state,
+                "progress": task.progress,
+                "progress_message": task.progress_message,
+                "vm_name": task.vm.name if task.vm else None,
+                "vm_id": task.vm.id if task.vm else None,
+                "cluster_name": task.cluster.name if task.cluster else None,
+                "created_at": task.created_at.isoformat(),
+            }
+        )
 
     return JsonResponse({"tasks": tasks_data})
 
@@ -644,16 +653,20 @@ def retry_task(request, task_id):
 
         # Only allow retrying failed or revoked tasks
         if task.state not in ["FAILURE", "REVOKED"]:
-            return JsonResponse({"error": "Can only retry failed or revoked tasks"}, status=400)
+            return JsonResponse(
+                {"error": "Can only retry failed or revoked tasks"}, status=400
+            )
 
         # Re-execute the task based on task name
         if task.task_name == "sync_cluster_data" and task.cluster:
             new_task = sync_cluster_data.delay(task.cluster.id)
-            return JsonResponse({
-                "status": "success",
-                "message": "Task retried successfully",
-                "new_task_id": new_task.id
-            })
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "message": "Task retried successfully",
+                    "new_task_id": new_task.id,
+                }
+            )
         elif task.task_name == "sync_vms_for_node" and task.vm:
             # Can't easily retry this as we don't have node_id stored
             return JsonResponse({"error": "Cannot retry this task type"}, status=400)
@@ -687,10 +700,9 @@ def cancel_task(request, task_id):
         task.completed_at = timezone.now()
         task.save()
 
-        return JsonResponse({
-            "status": "success",
-            "message": "Task canceled successfully"
-        })
+        return JsonResponse(
+            {"status": "success", "message": "Task canceled successfully"}
+        )
 
     except CeleryTask.DoesNotExist:
         return JsonResponse({"error": "Task not found"}, status=404)
