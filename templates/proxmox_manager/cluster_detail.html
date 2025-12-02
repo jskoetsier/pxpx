@@ -1,172 +1,317 @@
 {% extends 'base.html' %}
 
-{% block page_title %}Cluster: {{ cluster.name }}{% endblock %}
+{% block breadcrumb %}<a href="{% url 'cluster_list' %}" style="color: var(--text-secondary); text-decoration: none;">Clusters</a> / {{ cluster.name }}{% endblock %}
+{% block page_title %}{{ cluster.name }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-hdd-rack"></i> {{ cluster.name }}</h5>
-                <a href="{% url 'sync_cluster' cluster.id %}" class="btn btn-sm btn-light">
-                    <i class="bi bi-arrow-repeat"></i> Sync Now
-                </a>
+<!-- Cluster Header with Icon and Sync Button -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-hdd-rack-fill text-white" style="font-size: 1.75rem;"></i>
+        </div>
+        <div>
+            <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0;">{{ cluster.name }}</h2>
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem;">
+                {{ cluster.api_url }} • {{ cluster.username }}
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <th width="30%">API URL:</th>
-                                <td>{{ cluster.api_url }}</td>
-                            </tr>
-                            <tr>
-                                <th>Username:</th>
-                                <td>{{ cluster.username }}</td>
-                            </tr>
-                            <tr>
-                                <th>Status:</th>
-                                <td>
-                                    {% if cluster.is_active %}
-                                        <span class="badge bg-success">Active</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">Inactive</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <th width="30%">Nodes:</th>
-                                <td>{{ nodes.count }}</td>
-                            </tr>
-                            <tr>
-                                <th>VMs:</th>
-                                <td>{{ vms.count }}</td>
-                            </tr>
-                            <tr>
-                                <th>Created:</th>
-                                <td>{{ cluster.created_at|date:"Y-m-d H:i:s" }}</td>
-                            </tr>
-                        </table>
-                    </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        {% if cluster.is_active %}
+            <span class="badge badge-success" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Active
+            </span>
+        {% else %}
+            <span class="badge badge-danger" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Inactive
+            </span>
+        {% endif %}
+        <a href="{% url 'sync_cluster' cluster.id %}" class="btn" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); color: white; padding: 0.75rem 1.5rem; border-radius: 12px; border: none; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+            <i class="bi bi-arrow-repeat"></i> Sync Now
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Total Nodes Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Total Nodes</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-purple);">{{ nodes.count }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                    {% with online_count=nodes|length %}
+                    {% if online_count > 0 %}
+                        Registered nodes
+                    {% else %}
+                        No nodes yet
+                    {% endif %}
+                    {% endwith %}
                 </div>
+            </div>
+            <div style="width: 48px; height: 48px; background: rgba(147, 51, 234, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-hdd-rack" style="color: var(--accent-purple); font-size: 1.5rem;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Online Nodes Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Online Nodes</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">
+                    {% with online_nodes=nodes|selectattr:"status","equalto","online"|list %}
+                    {{ online_nodes|length|default:0 }}
+                    {% endwith %}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                    {% with online_nodes=nodes|selectattr:"status","equalto","online"|list %}
+                    {% if nodes.count > 0 %}
+                        {% widthratio online_nodes|length nodes.count 100 %}% availability
+                    {% else %}
+                        Sync to check status
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            <div style="width: 48px; height: 48px; background: rgba(74, 222, 128, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-check-circle-fill" style="color: var(--accent-green); font-size: 1.5rem;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total VMs Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Virtual Machines</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);">{{ vms.count }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                    {% with running_vms=vms|selectattr:"status","equalto","running"|list %}
+                    {{ running_vms|length|default:0 }} running
+                    {% endwith %}
+                </div>
+            </div>
+            <div style="width: 48px; height: 48px; background: rgba(34, 211, 238, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-boxes" style="color: var(--accent-cyan); font-size: 1.5rem;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Created Date Card -->
+    <div class="task-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Created</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-orange);">
+                    {{ cluster.created_at|date:"M d, Y" }}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ cluster.created_at|date:"H:i:s" }}</div>
+            </div>
+            <div style="width: 48px; height: 48px; background: rgba(251, 146, 60, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-calendar-check" style="color: var(--accent-orange); font-size: 1.5rem;"></i>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">
-                <h6 class="mb-0"><i class="bi bi-hdd-rack"></i> Nodes ({{ nodes.count }})</h6>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>CPU Usage</th>
-                                <th>RAM Usage</th>
-                                <th>Disk Usage</th>
-                                <th>VMs</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for node in nodes %}
-                            <tr>
-                                <td><a href="{% url 'node_detail' node.id %}">{{ node.name }}</a></td>
-                                <td>
-                                    {% if node.status == 'online' %}
-                                        <span class="badge bg-success">Online</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">{{ node.status }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ node.cpu_usage|floatformat:1 }}%</td>
-                                <td>{{ node.ram_usage|floatformat:1 }}%</td>
-                                <td>{{ node.disk_usage|floatformat:1 }}%</td>
-                                <td>{{ node.virtual_machines.count }}</td>
-                                <td>
-                                    <a href="{% url 'node_detail' node.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i> Details
-                                    </a>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="7" class="text-center text-muted">No nodes found. Sync the cluster to load nodes.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+<!-- Nodes Section -->
+<div style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600; margin: 0;">
+            <i class="bi bi-hdd-rack"></i> Nodes
+            <span style="color: var(--text-secondary); font-weight: 400; font-size: 1rem;">({{ nodes.count }})</span>
+        </h3>
+    </div>
+
+    {% if nodes %}
+    <div style="display: grid; gap: 1rem;">
+        {% for node in nodes %}
+        <a href="{% url 'node_detail' node.id %}" style="text-decoration: none; color: inherit;">
+            <div class="task-card" style="padding: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 1.5rem;">
+                    <!-- Node Icon -->
+                    <div class="task-icon {% if node.status == 'online' %}task-green{% else %}task-orange{% endif %}">
+                        <i class="bi bi-hdd-rack text-white"></i>
+                    </div>
+
+                    <!-- Node Info -->
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                            <h4 style="font-size: 1.125rem; font-weight: 600; margin: 0;">{{ node.name }}</h4>
+                            {% if node.status == 'online' %}
+                                <span class="badge badge-success" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">
+                                    <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Online
+                                </span>
+                            {% else %}
+                                <span class="badge badge-danger" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">
+                                    <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> {{ node.status|title }}
+                                </span>
+                            {% endif %}
+                            <span class="badge" style="background: rgba(255, 255, 255, 0.1); padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                <i class="bi bi-boxes"></i> {{ node.virtual_machines.count }} VM{% if node.virtual_machines.count != 1 %}s{% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Resource Usage Bars -->
+                        <div style="display: grid; gap: 0.75rem;">
+                            <!-- CPU Usage -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                        <i class="bi bi-cpu"></i> CPU
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--accent-purple);">
+                                        {{ node.cpu_usage|floatformat:1 }}%
+                                    </div>
+                                </div>
+                                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 6px; height: 6px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink)); height: 100%; width: {{ node.cpu_usage }}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+
+                            <!-- RAM Usage -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                        <i class="bi bi-memory"></i> RAM
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--accent-cyan);">
+                                        {{ node.ram_usage|floatformat:1 }}%
+                                    </div>
+                                </div>
+                                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 6px; height: 6px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); height: 100%; width: {{ node.ram_usage }}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Disk Usage -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                        <i class="bi bi-device-hdd"></i> Disk
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--accent-green);">
+                                        {{ node.disk_usage|floatformat:1 }}%
+                                    </div>
+                                </div>
+                                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 6px; height: 6px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan)); height: 100%; width: {{ node.disk_usage }}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Arrow Icon -->
+                    <div style="color: var(--text-secondary);">
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
+        {% endfor %}
     </div>
+    {% else %}
+    <!-- Empty State for Nodes -->
+    <div class="task-card" style="text-align: center; padding: 4rem 2rem;">
+        <i class="bi bi-hdd-rack" style="font-size: 4rem; opacity: 0.3; color: var(--text-secondary);"></i>
+        <h3 style="margin-top: 1.5rem; font-size: 1.25rem; color: var(--text-secondary);">No Nodes Found</h3>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Sync the cluster to load nodes.</p>
+    </div>
+    {% endif %}
 </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">
-                <h6 class="mb-0"><i class="bi bi-boxes"></i> Virtual Machines ({{ vms.count }})</h6>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Node</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for vm in vms %}
-                            <tr>
-                                <td>{{ vm.vmid }}</td>
-                                <td><a href="{% url 'vm_detail' vm.id %}">{{ vm.name }}</a></td>
-                                <td>
-                                    {% if vm.vm_type == 'qemu' %}
-                                        <span class="badge bg-primary">VM</span>
-                                    {% else %}
-                                        <span class="badge bg-info">Container</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ vm.node.name }}</td>
-                                <td>
-                                    {% if vm.status == 'running' %}
-                                        <span class="badge bg-success">Running</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">Stopped</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{% url 'vm_detail' vm.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted">No VMs found</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+<!-- Virtual Machines Section -->
+<div style="margin-top: 3rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600; margin: 0;">
+            <i class="bi bi-boxes"></i> Virtual Machines
+            <span style="color: var(--text-secondary); font-weight: 400; font-size: 1rem;">({{ vms.count }})</span>
+        </h3>
+    </div>
+
+    {% if vms %}
+    <div style="display: grid; gap: 1rem;">
+        {% for vm in vms %}
+        <a href="{% url 'vm_detail' vm.id %}" style="text-decoration: none; color: inherit;">
+            <div class="task-card" style="padding: 1.25rem;">
+                <div style="display: flex; align-items: center; gap: 1.5rem;">
+                    <!-- VM Icon -->
+                    <div class="task-icon {% if vm.status == 'running' %}task-green{% else %}task-orange{% endif %}">
+                        <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white"></i>
+                    </div>
+
+                    <!-- VM Info -->
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                            <h4 style="font-size: 1.125rem; font-weight: 600; margin: 0;">{{ vm.name }}</h4>
+                            <span class="badge" style="background: rgba(255, 255, 255, 0.1); padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                ID: {{ vm.vmid }}
+                            </span>
+                            {% if vm.vm_type == 'qemu' %}
+                                <span class="badge badge-info">VM</span>
+                            {% else %}
+                                <span class="badge" style="background: var(--accent-cyan); color: white;">Container</span>
+                            {% endif %}
+                        </div>
+
+                        <div style="display: flex; gap: 2rem; font-size: 0.875rem; color: var(--text-secondary);">
+                            <div>
+                                <i class="bi bi-hdd-rack"></i> {{ vm.node.name }}
+                            </div>
+                            <div>
+                                <i class="bi bi-cpu"></i> {{ vm.cpu_cores }} Core{% if vm.cpu_cores != 1 %}s{% endif %}
+                                {% if vm.status == 'running' %}
+                                    <span style="color: var(--accent-cyan);">({{ vm.cpu_usage|floatformat:0 }}%)</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <i class="bi bi-memory"></i> {{ vm.ram_mb }} MB
+                            </div>
+                            {% if vm.status == 'running' and vm.uptime %}
+                            <div>
+                                <i class="bi bi-clock"></i> Uptime: {% widthratio vm.uptime 3600 1 %}h
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Status Badge -->
+                    <div>
+                        {% if vm.status == 'running' %}
+                            <span class="badge badge-success" style="padding: 0.5rem 1rem;">
+                                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Running
+                            </span>
+                        {% elif vm.status == 'stopped' %}
+                            <span class="badge badge-warning" style="padding: 0.5rem 1rem;">
+                                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Stopped
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background: var(--text-secondary); padding: 0.5rem 1rem;">
+                                {{ vm.status|title }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Arrow Icon -->
+                    <div style="color: var(--text-secondary);">
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
+        {% endfor %}
     </div>
+    {% else %}
+    <!-- Empty State for VMs -->
+    <div class="task-card" style="text-align: center; padding: 4rem 2rem;">
+        <i class="bi bi-inbox" style="font-size: 4rem; opacity: 0.3; color: var(--text-secondary);"></i>
+        <h3 style="margin-top: 1.5rem; font-size: 1.25rem; color: var(--text-secondary);">No Virtual Machines</h3>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">This cluster doesn't have any VMs or containers yet.</p>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

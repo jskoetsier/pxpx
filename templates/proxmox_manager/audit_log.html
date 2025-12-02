@@ -1,63 +1,549 @@
 {% extends 'base.html' %}
 
 {% block page_title %}Audit Log{% endblock %}
+{% block breadcrumb %}Audit / Timeline{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Filter Section */
+    .filter-section {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .filter-input {
+        background: rgba(26, 29, 46, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.625rem 0.875rem;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: var(--accent-purple);
+        background: rgba(26, 29, 46, 0.8);
+    }
+
+    .filter-button {
+        background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.625rem 1.5rem;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        align-self: flex-end;
+    }
+
+    .filter-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(139, 92, 246, 0.3);
+    }
+
+    /* Timeline Container */
+    .timeline-container {
+        position: relative;
+        padding-left: 3rem;
+        margin-top: 2rem;
+    }
+
+    /* Timeline Line */
+    .timeline-line {
+        position: absolute;
+        left: 1.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(180deg, var(--accent-purple) 0%, var(--accent-pink) 50%, var(--accent-cyan) 100%);
+        opacity: 0.3;
+    }
+
+    /* Timeline Entry */
+    .timeline-entry {
+        position: relative;
+        margin-bottom: 2rem;
+        animation: slideInLeft 0.5s ease-out;
+    }
+
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Timeline Icon */
+    .timeline-icon {
+        position: absolute;
+        left: -2.75rem;
+        top: 0.5rem;
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        z-index: 2;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .icon-create {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .icon-start {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .icon-stop {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    .icon-restart {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .icon-delete {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    }
+
+    .icon-snapshot {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    }
+
+    .icon-migrate {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    }
+
+    .icon-update {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    }
+
+    .icon-backup {
+        background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+    }
+
+    .icon-default {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    }
+
+    /* Timeline Card */
+    .timeline-card {
+        background: rgba(42, 47, 84, 0.6);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .timeline-card:hover {
+        transform: translateY(-4px) translateX(8px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+        border-color: rgba(139, 92, 246, 0.3);
+    }
+
+    .timeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .timeline-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .timeline-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .timeline-body {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .timeline-details {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .timeline-target {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(59, 130, 246, 0.1);
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        color: var(--accent-blue);
+        font-size: 0.875rem;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .timeline-target:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateX(4px);
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.875rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-success {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-failed {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-pending {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .status-pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-success .status-pulse {
+        background: #10b981;
+    }
+
+    .status-failed .status-pulse {
+        background: #ef4444;
+    }
+
+    .status-pending .status-pulse {
+        background: #f59e0b;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    /* Empty State */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+
+    .empty-icon {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    .empty-icon i {
+        font-size: 3rem;
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .empty-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-description {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        max-width: 400px;
+    }
+
+    /* Action Badge */
+    .action-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: rgba(139, 92, 246, 0.15);
+        color: var(--accent-purple);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm">
-    <div class="card-header bg-secondary text-white">
-        <h5 class="mb-0"><i class="bi bi-journal-text"></i> Audit Log</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>User</th>
-                        <th>Action</th>
-                        <th>VM/Cluster</th>
-                        <th>Status</th>
-                        <th>Details</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr>
-                        <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
-                        <td>{{ log.user.username|default:"System" }}</td>
-                        <td>
-                            <span class="badge bg-primary">{{ log.get_action_display }}</span>
-                        </td>
-                        <td>
-                            {% if log.vm %}
-                                <a href="{% url 'vm_detail' log.vm.id %}">{{ log.vm.name }}</a>
-                            {% elif log.cluster %}
-                                {{ log.cluster.name }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if log.status == 'success' %}
-                                <span class="badge bg-success">Success</span>
-                            {% elif log.status == 'failed' %}
-                                <span class="badge bg-danger">Failed</span>
-                            {% else %}
-                                <span class="badge bg-warning">Pending</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <small>{{ log.details|truncatewords:10 }}</small>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">No audit logs found</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<!-- Header Section -->
+<div class="filter-section">
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-clock-history" style="font-size: 1.5rem;"></i>
+        </div>
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Audit Timeline</h2>
+            <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Track all system activities and changes</p>
         </div>
     </div>
+
+    <!-- Filters -->
+    <form method="get" action="{% url 'audit_log' %}">
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-calendar3"></i> Start Date
+                </label>
+                <input type="date" name="start_date" class="filter-input" value="{{ request.GET.start_date }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-calendar3"></i> End Date
+                </label>
+                <input type="date" name="end_date" class="filter-input" value="{{ request.GET.end_date }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-filter"></i> Action Type
+                </label>
+                <select name="action_type" class="filter-input">
+                    <option value="">All Actions</option>
+                    <option value="create" {% if request.GET.action_type == 'create' %}selected{% endif %}>Create</option>
+                    <option value="start" {% if request.GET.action_type == 'start' %}selected{% endif %}>Start</option>
+                    <option value="stop" {% if request.GET.action_type == 'stop' %}selected{% endif %}>Stop</option>
+                    <option value="restart" {% if request.GET.action_type == 'restart' %}selected{% endif %}>Restart</option>
+                    <option value="delete" {% if request.GET.action_type == 'delete' %}selected{% endif %}>Delete</option>
+                    <option value="snapshot" {% if request.GET.action_type == 'snapshot' %}selected{% endif %}>Snapshot</option>
+                    <option value="migrate" {% if request.GET.action_type == 'migrate' %}selected{% endif %}>Migrate</option>
+                    <option value="backup" {% if request.GET.action_type == 'backup' %}selected{% endif %}>Backup</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">
+                    <i class="bi bi-check-circle"></i> Status
+                </label>
+                <select name="status" class="filter-input">
+                    <option value="">All Status</option>
+                    <option value="success" {% if request.GET.status == 'success' %}selected{% endif %}>Success</option>
+                    <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>Failed</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                </select>
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="submit" class="filter-button">
+                <i class="bi bi-funnel"></i> Apply Filters
+            </button>
+            <a href="{% url 'audit_log' %}" class="filter-button" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                <i class="bi bi-x-circle"></i> Clear
+            </a>
+        </div>
+    </form>
 </div>
+
+<!-- Timeline -->
+<div class="timeline-container">
+    <div class="timeline-line"></div>
+
+    {% for log in logs %}
+    <div class="timeline-entry">
+        <!-- Timeline Icon -->
+        <div class="timeline-icon icon-{{ log.action|lower }}">
+            {% if log.action == 'create' or log.action == 'CREATE' %}
+                <i class="bi bi-plus-lg"></i>
+            {% elif log.action == 'start' or log.action == 'START' %}
+                <i class="bi bi-play-fill"></i>
+            {% elif log.action == 'stop' or log.action == 'STOP' %}
+                <i class="bi bi-stop-fill"></i>
+            {% elif log.action == 'restart' or log.action == 'RESTART' %}
+                <i class="bi bi-arrow-repeat"></i>
+            {% elif log.action == 'delete' or log.action == 'DELETE' %}
+                <i class="bi bi-trash-fill"></i>
+            {% elif log.action == 'snapshot' or log.action == 'SNAPSHOT' %}
+                <i class="bi bi-camera-fill"></i>
+            {% elif log.action == 'migrate' or log.action == 'MIGRATE' %}
+                <i class="bi bi-arrow-left-right"></i>
+            {% elif log.action == 'backup' or log.action == 'BACKUP' %}
+                <i class="bi bi-shield-fill-check"></i>
+            {% elif log.action == 'update' or log.action == 'UPDATE' %}
+                <i class="bi bi-arrow-up-circle-fill"></i>
+            {% else %}
+                <i class="bi bi-gear-fill"></i>
+            {% endif %}
+        </div>
+
+        <!-- Timeline Card -->
+        <div class="timeline-card task-card">
+            <div class="timeline-header">
+                <div style="flex: 1;">
+                    <div class="timeline-title">{{ log.get_action_display }}</div>
+                    <div class="timeline-meta">
+                        <div class="meta-item">
+                            <i class="bi bi-calendar"></i>
+                            <span>{{ log.created_at|date:"M d, Y" }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="bi bi-clock"></i>
+                            <span>{{ log.created_at|date:"H:i:s" }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="bi bi-person-circle"></i>
+                            <span>{{ log.user.username|default:"System" }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    {% if log.status == 'success' %}
+                        <span class="status-badge status-success">
+                            <span class="status-pulse"></span>
+                            Success
+                        </span>
+                    {% elif log.status == 'failed' %}
+                        <span class="status-badge status-failed">
+                            <span class="status-pulse"></span>
+                            Failed
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-pending">
+                            <span class="status-pulse"></span>
+                            Pending
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="timeline-body">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem;">
+                    <span class="action-badge">
+                        <i class="bi bi-tag"></i>
+                        {{ log.get_action_display }}
+                    </span>
+                    {% if log.vm %}
+                        <a href="{% url 'vm_detail' log.vm.id %}" class="timeline-target">
+                            <i class="bi bi-box"></i>
+                            {{ log.vm.name }}
+                        </a>
+                    {% elif log.cluster %}
+                        <span class="timeline-target" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green);">
+                            <i class="bi bi-hdd-rack"></i>
+                            {{ log.cluster.name }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                {% if log.details %}
+                <div class="timeline-details">
+                    <i class="bi bi-info-circle"></i>
+                    {{ log.details }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-inbox"></i>
+        </div>
+        <h3 class="empty-title">No Audit Logs Found</h3>
+        <p class="empty-description">
+            There are no audit logs to display. System activities and changes will appear here once actions are performed.
+        </p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if logs %}
+<!-- Pagination hint -->
+<div style="margin-top: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.875rem;">
+    <i class="bi bi-check-circle"></i> Showing {{ logs|length }} audit log entries
+</div>
+{% endif %}
 {% endblock %}

@@ -1,50 +1,838 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 
-{% block page_title %}Migrate VM: {{ vm.name }}{% endblock %}
+{% block breadcrumb %}Virtual Machines / {{ vm.name }} / Migrate{% endblock %}
+{% block page_title %}Migrate Virtual Machine{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="card shadow-sm">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Migrate Virtual Machine</h5>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> You are about to migrate <strong>{{ vm.name }} (ID: {{ vm.vmid }})</strong> from node <strong>{{ vm.node.name }}</strong>
-                </div>
+<style>
+    /* Wizard Container */
+    .wizard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
 
-                <form method="post">
-                    {% csrf_token %}
-                    {{ form|crispy }}
+    /* VM Header Card */
+    .vm-header-card {
+        background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
 
-                    <div class="d-flex justify-content-between mt-4">
-                        <a href="{% url 'vm_detail' vm.id %}" class="btn btn-secondary">
-                            <i class="bi bi-x-circle"></i> Cancel
-                        </a>
-                        <button type="submit" class="btn btn-warning">
-                            <i class="bi bi-arrow-left-right"></i> Start Migration
-                        </button>
-                    </div>
-                </form>
-            </div>
+    .vm-icon {
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .vm-header-info {
+        flex: 1;
+    }
+
+    .vm-header-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    .vm-header-meta {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .vm-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Migration Flow Section */
+    .migration-flow {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .flow-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .node-flow-container {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 2rem;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .node-card {
+        background: rgba(42, 47, 84, 0.6);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .node-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-orange), var(--accent-pink));
+    }
+
+    .node-card.target::before {
+        background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+    }
+
+    .node-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .node-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-secondary);
+        margin-bottom: 0.75rem;
+    }
+
+    .node-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+    }
+
+    .node-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .stat-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 0.75rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .resource-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+
+    .resource-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+
+    .resource-fill.cpu {
+        background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    }
+
+    .resource-fill.memory {
+        background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
+    }
+
+    .flow-arrow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .arrow-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+        }
+    }
+
+    .arrow-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    /* Options Section */
+    .options-section {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .section-icon {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    /* Modern Toggle Switch */
+    .toggle-option {
+        background: rgba(42, 47, 84, 0.6);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .toggle-option:hover {
+        background: rgba(42, 47, 84, 0.8);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .toggle-info {
+        flex: 1;
+    }
+
+    .toggle-label {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .toggle-description {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .toggle-switch {
+        position: relative;
+        width: 56px;
+        height: 28px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 28px;
+        transition: 0.3s;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 4px;
+        bottom: 4px;
+        background: white;
+        border-radius: 50%;
+        transition: 0.3s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(28px);
+    }
+
+    /* Node Selection */
+    .node-selection-section {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .node-selector {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .node-option {
+        position: relative;
+    }
+
+    .node-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
+
+    .node-option-card {
+        background: rgba(42, 47, 84, 0.6);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 2px solid rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .node-option input[type="radio"]:checked + .node-option-card {
+        border-color: var(--accent-purple);
+        background: rgba(139, 92, 246, 0.1);
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2);
+    }
+
+    .node-option-card:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateX(4px);
+    }
+
+    .node-option-icon {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        flex-shrink: 0;
+    }
+
+    .node-option-info {
+        flex: 1;
+    }
+
+    .node-option-name {
+        font-size: 1.125rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .node-option-resources {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 0.75rem;
+    }
+
+    .resource-indicator {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .resource-indicator-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .resource-percentage {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Info Alert */
+    .info-alert {
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .alert-icon {
+        width: 32px;
+        height: 32px;
+        background: rgba(59, 130, 246, 0.2);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: var(--accent-blue);
+        flex-shrink: 0;
+    }
+
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-title {
+        font-weight: 600;
+        color: var(--accent-blue);
+        margin-bottom: 0.5rem;
+    }
+
+    .alert-text {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: space-between;
+        margin-top: 2rem;
+    }
+
+    .btn-cancel {
+        padding: 1rem 2rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+    }
+
+    .btn-cancel:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+        color: var(--text-primary);
+    }
+
+    .btn-migrate {
+        padding: 1rem 3rem;
+        background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        font-weight: 700;
+        font-size: 1.125rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+    }
+
+    .btn-migrate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(139, 92, 246, 0.6);
+    }
+
+    .btn-migrate:active {
+        transform: translateY(0);
+    }
+
+    /* Migration Notes */
+    .migration-notes {
+        background: rgba(42, 47, 84, 0.4);
+        border-radius: 16px;
+        padding: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .notes-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .notes-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .notes-list li {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 8px;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: start;
+        gap: 0.75rem;
+    }
+
+    .notes-list li::before {
+        content: '✓';
+        color: var(--accent-green);
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    /* Hide default form labels since we're using custom styling */
+    .form-group label {
+        display: none;
+    }
+
+    .form-group select,
+    .form-group input[type="checkbox"] {
+        display: none;
+    }
+</style>
+
+<div class="wizard-container">
+    <!-- VM Header -->
+    <div class="vm-header-card">
+        <div class="vm-icon">
+            <i class="bi bi-hdd-stack"></i>
         </div>
-
-        <div class="card shadow-sm mt-4">
-            <div class="card-header bg-dark text-white">
-                <h6 class="mb-0">Migration Notes</h6>
-            </div>
-            <div class="card-body">
-                <ul class="mb-0">
-                    <li>Live migration keeps the VM running during the transfer</li>
-                    <li>Offline migration requires the VM to be stopped first</li>
-                    <li>Both nodes must have access to the same shared storage</li>
-                    <li>Target node must have sufficient resources</li>
-                    <li>Migration is performed asynchronously in the background</li>
-                </ul>
+        <div class="vm-header-info">
+            <div class="vm-header-title">{{ vm.name }}</div>
+            <div class="vm-header-meta">
+                <div class="vm-meta-item">
+                    <i class="bi bi-hash"></i>
+                    <span>VM ID: {{ vm.vmid }}</span>
+                </div>
+                <div class="vm-meta-item">
+                    <i class="bi bi-cpu"></i>
+                    <span>{{ vm.cpu_cores }} vCPU</span>
+                </div>
+                <div class="vm-meta-item">
+                    <i class="bi bi-memory"></i>
+                    <span>{{ vm.memory_mb }} MB RAM</span>
+                </div>
+                <div class="vm-meta-item">
+                    <i class="bi bi-circle-fill" style="color: {% if vm.status == 'running' %}var(--accent-green){% else %}var(--accent-orange){% endif %}"></i>
+                    <span>{{ vm.status|upper }}</span>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Info Alert -->
+    <div class="info-alert">
+        <div class="alert-icon">
+            <i class="bi bi-info-circle-fill"></i>
+        </div>
+        <div class="alert-content">
+            <div class="alert-title">Migration Wizard</div>
+            <div class="alert-text">
+                Configure and execute the migration of your virtual machine to a different node in the cluster. Live migration keeps your VM running during the transfer, while offline migration requires the VM to be stopped first.
+            </div>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Migration Flow Visualization -->
+        <div class="migration-flow">
+            <div class="flow-title">Migration Path</div>
+            <div class="node-flow-container">
+                <!-- Source Node -->
+                <div class="node-card source">
+                    <div class="node-label">
+                        <i class="bi bi-server"></i> Source Node
+                    </div>
+                    <div class="node-name">{{ vm.node.name }}</div>
+                    <div class="node-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">CPU Usage</div>
+                            <div class="stat-value">{{ vm.node.cpu_usage|floatformat:1 }}%</div>
+                            <div class="resource-bar">
+                                <div class="resource-fill cpu" style="width: {{ vm.node.cpu_usage }}%"></div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Memory</div>
+                            <div class="stat-value">{{ vm.node.memory_usage|floatformat:1 }}%</div>
+                            <div class="resource-bar">
+                                <div class="resource-fill memory" style="width: {{ vm.node.memory_usage }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div class="flow-arrow">
+                    <div class="arrow-icon">
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                    <div class="arrow-label">MIGRATING</div>
+                </div>
+
+                <!-- Target Node Placeholder -->
+                <div class="node-card target">
+                    <div class="node-label">
+                        <i class="bi bi-bullseye"></i> Target Node
+                    </div>
+                    <div class="node-name">Select Below</div>
+                    <div class="node-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Will be updated</div>
+                            <div class="stat-value">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">after selection</div>
+                            <div class="stat-value">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Migration Options -->
+        <div class="options-section">
+            <div class="section-title">
+                <div class="section-icon">
+                    <i class="bi bi-sliders"></i>
+                </div>
+                Migration Options
+            </div>
+
+            <div class="toggle-option">
+                <div class="toggle-info">
+                    <div class="toggle-label">
+                        <i class="bi bi-lightning-charge"></i> Live Migration (Online)
+                    </div>
+                    <div class="toggle-description">
+                        Keep the VM running during migration. Recommended for production workloads. Requires shared storage.
+                    </div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="online" id="id_online" {% if form.online.value %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Node Selection -->
+        <div class="node-selection-section">
+            <div class="section-title">
+                <div class="section-icon">
+                    <i class="bi bi-hdd-rack"></i>
+                </div>
+                Select Target Node
+            </div>
+
+            <div class="node-selector">
+                {% for node in form.target_node.field.queryset %}
+                <label class="node-option">
+                    <input type="radio" name="target_node" value="{{ node.id }}" id="id_target_node_{{ forloop.counter }}" {% if forloop.first %}checked{% endif %}>
+                    <div class="node-option-card">
+                        <div class="node-option-icon">
+                            <i class="bi bi-server"></i>
+                        </div>
+                        <div class="node-option-info">
+                            <div class="node-option-name">{{ node.name }}</div>
+                            <div class="node-option-resources">
+                                <div class="resource-indicator">
+                                    <div class="resource-indicator-label">
+                                        <span><i class="bi bi-cpu"></i> CPU</span>
+                                        <span class="resource-percentage">{{ node.cpu_usage|floatformat:1 }}%</span>
+                                    </div>
+                                    <div class="resource-bar">
+                                        <div class="resource-fill cpu" style="width: {{ node.cpu_usage }}%"></div>
+                                    </div>
+                                </div>
+                                <div class="resource-indicator">
+                                    <div class="resource-indicator-label">
+                                        <span><i class="bi bi-memory"></i> Memory</span>
+                                        <span class="resource-percentage">{{ node.memory_usage|floatformat:1 }}%</span>
+                                    </div>
+                                    <div class="resource-bar">
+                                        <div class="resource-fill memory" style="width: {{ node.memory_usage }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-left: auto;">
+                            <i class="bi bi-check-circle" style="font-size: 1.5rem; color: var(--accent-green); display: none;"></i>
+                        </div>
+                    </div>
+                </label>
+                {% empty %}
+                <div class="info-alert">
+                    <div class="alert-icon">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
+                    <div class="alert-content">
+                        <div class="alert-title">No Available Nodes</div>
+                        <div class="alert-text">
+                            There are no online nodes available in this cluster for migration. Please ensure other nodes are online and accessible.
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <a href="{% url 'vm_detail' vm.id %}" class="btn-cancel">
+                <i class="bi bi-x-circle"></i>
+                Cancel
+            </a>
+            <button type="submit" class="btn-migrate">
+                <i class="bi bi-rocket-takeoff"></i>
+                Start Migration
+            </button>
+        </div>
+    </form>
+
+    <!-- Migration Notes -->
+    <div class="migration-notes" style="margin-top: 2rem;">
+        <div class="notes-title">
+            <i class="bi bi-lightbulb"></i>
+            Migration Guidelines
+        </div>
+        <ul class="notes-list">
+            <li>Live migration keeps the VM running during the transfer with minimal downtime</li>
+            <li>Offline migration requires the VM to be stopped first for complete data transfer</li>
+            <li>Both nodes must have access to the same shared storage for successful migration</li>
+            <li>Target node must have sufficient CPU, memory, and storage resources available</li>
+            <li>Migration is performed asynchronously in the background and can be monitored</li>
+        </ul>
+    </div>
 </div>
+
+<script>
+    // Update target node display when selection changes
+    document.querySelectorAll('input[name="target_node"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Update check icons
+            document.querySelectorAll('.node-option-card .bi-check-circle').forEach(icon => {
+                icon.style.display = 'none';
+            });
+            const selectedCard = this.closest('.node-option-card');
+            const checkIcon = selectedCard.querySelector('.bi-check-circle');
+            if (checkIcon) {
+                checkIcon.style.display = 'block';
+            }
+
+            // Update target node preview in flow
+            const nodeName = selectedCard.querySelector('.node-option-name').textContent;
+            const cpuUsage = selectedCard.querySelector('.resource-percentage').textContent;
+            const memoryUsage = selectedCard.querySelectorAll('.resource-percentage')[1].textContent;
+
+            const targetCard = document.querySelector('.node-card.target');
+            targetCard.querySelector('.node-name').textContent = nodeName;
+            const statValues = targetCard.querySelectorAll('.stat-value');
+            statValues[0].textContent = cpuUsage;
+            statValues[1].textContent = memoryUsage;
+
+            // Update resource bars
+            const targetBars = targetCard.querySelectorAll('.resource-fill');
+            targetBars[0].style.width = cpuUsage;
+            targetBars[1].style.width = memoryUsage;
+
+            // Update stat labels
+            const statLabels = targetCard.querySelectorAll('.stat-label');
+            statLabels[0].textContent = 'CPU Usage';
+            statLabels[1].textContent = 'Memory';
+        });
+    });
+
+    // Trigger initial selection if available
+    const firstRadio = document.querySelector('input[name="target_node"]:checked');
+    if (firstRadio) {
+        firstRadio.dispatchEvent(new Event('change'));
+    }
+</script>
 {% endblock %}
