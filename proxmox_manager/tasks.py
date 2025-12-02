@@ -87,16 +87,16 @@ def sync_vms_for_node(node_id):
                 disk_gb = 0
                 # Check for virtio disks (virtio0, virtio1, etc.)
                 for key, value in vm_config.items():
-                    if key.startswith(('virtio', 'scsi', 'sata', 'ide')):
+                    if key.startswith(("virtio", "scsi", "sata", "ide")):
                         # Parse disk size from string like "local:100/vm-100-disk-0.qcow2,size=32G"
-                        if isinstance(value, str) and 'size=' in value:
-                            size_part = value.split('size=')[1].split(',')[0]
-                            if 'G' in size_part:
-                                disk_gb += float(size_part.replace('G', ''))
-                            elif 'T' in size_part:
-                                disk_gb += float(size_part.replace('T', '')) * 1024
-                            elif 'M' in size_part:
-                                disk_gb += float(size_part.replace('M', '')) / 1024
+                        if isinstance(value, str) and "size=" in value:
+                            size_part = value.split("size=")[1].split(",")[0]
+                            if "G" in size_part:
+                                disk_gb += float(size_part.replace("G", ""))
+                            elif "T" in size_part:
+                                disk_gb += float(size_part.replace("T", "")) * 1024
+                            elif "M" in size_part:
+                                disk_gb += float(size_part.replace("M", "")) / 1024
 
                 VirtualMachine.objects.update_or_create(
                     node=node,
@@ -129,15 +129,15 @@ def sync_vms_for_node(node_id):
                 # Calculate disk size from config
                 disk_gb = 0
                 # LXC containers use rootfs
-                rootfs = container_config.get('rootfs', '')
-                if isinstance(rootfs, str) and 'size=' in rootfs:
-                    size_part = rootfs.split('size=')[1].split(',')[0]
-                    if 'G' in size_part:
-                        disk_gb = float(size_part.replace('G', ''))
-                    elif 'T' in size_part:
-                        disk_gb = float(size_part.replace('T', '')) * 1024
-                    elif 'M' in size_part:
-                        disk_gb = float(size_part.replace('M', '')) / 1024
+                rootfs = container_config.get("rootfs", "")
+                if isinstance(rootfs, str) and "size=" in rootfs:
+                    size_part = rootfs.split("size=")[1].split(",")[0]
+                    if "G" in size_part:
+                        disk_gb = float(size_part.replace("G", ""))
+                    elif "T" in size_part:
+                        disk_gb = float(size_part.replace("T", "")) * 1024
+                    elif "M" in size_part:
+                        disk_gb = float(size_part.replace("M", "")) / 1024
 
                 VirtualMachine.objects.update_or_create(
                     node=node,
