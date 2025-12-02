@@ -34,4 +34,12 @@ urlpatterns = [
         views.get_cluster_stats,
         name="api_cluster_stats",
     ),
+    # Task management endpoints
+    path("tasks/", views.task_list, name="task_list"),
+    path(
+        "api/tasks/<str:task_id>/status/", views.get_task_status, name="get_task_status"
+    ),
+    path("api/tasks/running/", views.get_running_tasks, name="get_running_tasks"),
+    path("api/tasks/<str:task_id>/retry/", views.retry_task, name="retry_task"),
+    path("api/tasks/<str:task_id>/cancel/", views.cancel_task, name="cancel_task"),
 ]

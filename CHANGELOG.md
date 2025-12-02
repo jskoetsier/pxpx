@@ -302,15 +302,88 @@ None - this release is fully backward compatible with v1.0.0.
 
 ---
 
+## [1.1.1] - 2025-01-02
+
+### 🔧 Minor Release - Task Tracking Infrastructure
+
+This release adds backend infrastructure for Celery task monitoring and management.
+
+### ✨ Added
+
+#### Task Tracking System
+- **CeleryTask Model**: Database model to track all Celery task executions
+- **Task Lifecycle Tracking**: Automatic tracking of task state, progress, and execution time
+- **Helper Functions**:
+  - `track_task()` - Create task tracking record
+  - `update_task_progress()` - Update task progress percentage and message
+  - `complete_task()` - Mark task as completed with result/error
+- **Progress Monitoring**: All sync tasks now report progress (0-100%)
+- **Execution Metrics**: Track task start time, completion time, and total execution time
+- **Database Indexes**: Optimized queries for task history and filtering
+
+#### API Endpoints
+- **GET /tasks/** - Task history page with filtering and search
+- **GET /api/tasks/\<task_id\>/status/** - Get individual task status
+- **GET /api/tasks/running/** - Get all currently running tasks
+- **POST /api/tasks/\<task_id\>/retry/** - Retry failed tasks
+- **POST /api/tasks/\<task_id\>/cancel/** - Cancel running tasks
+
+#### Admin Interface
+- **CeleryTask Admin**: View and manage tasks in Django admin
+- **Execution Time Display**: Shows formatted execution time for completed tasks
+- **Advanced Filtering**: Filter by state, task name, user, VM, cluster
+- **Search**: Search by task ID, task name, user, or VM name
+
+### 🔧 Technical Improvements
+
+#### Enhanced Task Tracking
+- **Sync Tasks**: Both `sync_cluster_data` and `sync_vms_for_node` now report detailed progress
+- **Progress Messages**: Human-readable progress updates (e.g., "Syncing node pve1", "Fetching VMs")
+- **Error Handling**: Better error tracking with full tracebacks stored
+- **Task States**: Track PENDING, STARTED, SUCCESS, FAILURE, RETRY, REVOKED states
+
+#### Database Optimization
+- **Composite Indexes**: Optimized for common queries (state + created_at, task_name + created_at)
+- **Select Related**: Efficient queries with user, VM, and cluster relationships
+- **Pagination**: Task list supports pagination for large datasets
+
+### 📊 Features Ready for UI
+
+Backend infrastructure is complete for:
+- ✅ Real-time task status monitoring
+- ✅ Task progress bars (backend ready, UI pending)
+- ✅ Task history with filtering
+- ✅ Retry failed tasks
+- ✅ Cancel running tasks
+- ✅ Task execution metrics
+
+### 🔄 Breaking Changes
+
+None - this release is fully backward compatible with v1.1.0.
+
+### ⚠️ Known Issues
+
+- Task tracking UI components not yet implemented (templates and JavaScript pending)
+- Task progress bars need frontend implementation
+- No visual notification of task completion yet
+
+### 📝 Notes
+
+This release focuses on backend infrastructure. UI components (templates, JavaScript, progress bars) will be added in subsequent releases.
+
+---
+
 ## [Unreleased]
 
 ### Planned Features
 See ROADMAP.md for upcoming features and improvements.
 
 ### Known Issues
-- Celery task status not exposed in UI (planned for v1.2.0)
+- Task tracking UI components pending (templates, JavaScript)
 - No bulk VM operations yet (planned for v1.2.0)
 
 ---
 
 [1.0.0]: https://github.com/jskoetsier/pxpx/releases/tag/v1.0.0
+[1.1.0]: https://github.com/jskoetsier/pxpx/releases/tag/v1.1.0
+[1.1.1]: https://github.com/jskoetsier/pxpx/releases/tag/v1.1.1

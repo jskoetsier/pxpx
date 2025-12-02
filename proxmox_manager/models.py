@@ -160,3 +160,65 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action} - {self.status} ({self.created_at})"
+
+
+class CeleryTask(models.Model):
+    TASK_STATE_CHOICES = [
+        ("PENDING", "Pending"),
+        ("STARTED", "Started"),
+        ("SUCCESS", "Success"),
+        ("FAILURE", "Failure"),
+        ("RETRY", "Retry"),
+        ("REVOKED", "Revoked"),
+    ]
+
+    task_id = models.CharField(max_length=255, unique=True, db_index=True)
+    task_name = models.CharField(max_length=255, db_index=True)
+    state = models.CharField(
+        max_length=50, choices=TASK_STATE_CHOICES, default="PENDING", db_index=True
+    )
+    result = models.TextField(blank=True, null=True)
+    traceback = models.TextField(blank=True, null=True)
+    progress = models.IntegerField(default=0, help_text="Progress percentage (0-100)")
+    progress_message = models.CharField(max_length=255, blank=True)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    vm = models.ForeignKey(
+        VirtualMachine, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    cluster = models.ForeignKey(
+        ProxmoxCluster, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Celery Task"
+        verbose_name_plural = "Celery Tasks"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at", "state"]),
+            models.Index(fields=["task_name", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.task_name} - {self.state} ({self.created_at})"
+
+    @property
+    def execution_time(self):
+        if self.started_at and self.completed_at:
+            delta = self.completed_at - self.started_at
+            return round(delta.total_seconds(), 2)
+        return None
+
+    @property
+    def is_running(self):
+        return self.state in ["PENDING", "STARTED", "RETRY"]
+
+    @property
+    def is_completed(self):
+        return self.state in ["SUCCESS", "FAILURE", "REVOKED"]

@@ -1,12 +1,53 @@
 import logging
 
-from celery import shared_task
+from celery import current_task, shared_task
 from django.utils import timezone
 from proxmoxer import ProxmoxAPI
 
-from .models import AuditLog, Node, ProxmoxCluster, VirtualMachine
+from .models import AuditLog, CeleryTask, Node, ProxmoxCluster, VirtualMachine
 
 logger = logging.getLogger(__name__)
+
+
+def track_task(task_name, user=None, vm=None, cluster=None):
+    """Helper function to create a CeleryTask record for tracking"""
+    if current_task and current_task.request.id:
+        celery_task, created = CeleryTask.objects.get_or_create(
+            task_id=current_task.request.id,
+            defaults={
+                "task_name": task_name,
+                "state": "STARTED",
+                "user": user,
+                "vm": vm,
+                "cluster": cluster,
+                "started_at": timezone.now(),
+            },
+        )
+        if not created:
+            celery_task.state = "STARTED"
+            celery_task.started_at = timezone.now()
+            celery_task.save()
+        return celery_task
+    return None
+
+
+def update_task_progress(celery_task, progress, message=""):
+    """Update task progress"""
+    if celery_task:
+        celery_task.progress = progress
+        celery_task.progress_message = message
+        celery_task.save()
+
+
+def complete_task(celery_task, state, result=None, traceback=None):
+    """Mark task as completed"""
+    if celery_task:
+        celery_task.state = state
+        celery_task.result = str(result) if result else None
+        celery_task.traceback = traceback
+        celery_task.completed_at = timezone.now()
+        celery_task.progress = 100 if state == "SUCCESS" else celery_task.progress
+        celery_task.save()
 
 
 @shared_task
@@ -34,14 +75,23 @@ def get_proxmox_connection(cluster):
 
 @shared_task
 def sync_cluster_data(cluster_id):
+    celery_task = None
     try:
         cluster = ProxmoxCluster.objects.get(id=cluster_id)
+        celery_task = track_task(f"sync_cluster_data", cluster=cluster)
+
+        update_task_progress(celery_task, 10, f"Connecting to cluster {cluster.name}")
         prox = get_proxmox_connection(cluster)
 
+        update_task_progress(celery_task, 30, "Fetching nodes data")
         nodes_data = prox.nodes.get()
+        total_nodes = len(nodes_data)
 
-        for node_data in nodes_data:
+        for idx, node_data in enumerate(nodes_data):
+            progress = 30 + int((idx / total_nodes) * 40)
             node_name = node_data["node"]
+            update_task_progress(celery_task, progress, f"Syncing node {node_name}")
+
             node_status_data = prox.nodes(node_name).status.get()
 
             cpu_usage = node_status_data.get("cpu", 0) * 100
@@ -74,35 +124,46 @@ def sync_cluster_data(cluster_id):
 
             sync_vms_for_node.delay(node.id)
 
-        return f"Successfully synced cluster {cluster.name}"
+        update_task_progress(celery_task, 90, "Finalizing cluster sync")
+        result = f"Successfully synced cluster {cluster.name}"
+        complete_task(celery_task, "SUCCESS", result)
+        return result
 
     except Exception as e:
         logger.error(f"Error syncing cluster {cluster_id}: {str(e)}")
+        import traceback
+
+        complete_task(celery_task, "FAILURE", str(e), traceback.format_exc())
         return f"Error syncing cluster: {str(e)}"
 
 
 @shared_task
 def sync_vms_for_node(node_id):
+    celery_task = None
     try:
         node = Node.objects.get(id=node_id)
         cluster = node.cluster
+        celery_task = track_task(f"sync_vms_for_node", cluster=cluster)
+
+        update_task_progress(celery_task, 10, f"Connecting to node {node.name}")
         prox = get_proxmox_connection(cluster)
 
+        update_task_progress(celery_task, 30, "Fetching VMs")
         vms_data = prox.nodes(node.name).qemu.get()
+        total_vms = len(vms_data)
 
-        for vm_data in vms_data:
+        for idx, vm_data in enumerate(vms_data):
+            progress = 30 + int((idx / max(total_vms, 1)) * 30)
             vmid = vm_data["vmid"]
+            update_task_progress(celery_task, progress, f"Syncing VM {vmid}")
 
             try:
                 vm_config = prox.nodes(node.name).qemu(vmid).config.get()
                 vm_status = prox.nodes(node.name).qemu(vmid).status.current.get()
 
-                # Calculate disk size from config
                 disk_gb = 0
-                # Check for virtio disks (virtio0, virtio1, etc.)
                 for key, value in vm_config.items():
                     if key.startswith(("virtio", "scsi", "sata", "ide")):
-                        # Parse disk size from string like "local:100/vm-100-disk-0.qcow2,size=32G"
                         if isinstance(value, str) and "size=" in value:
                             size_part = value.split("size=")[1].split(",")[0]
                             if "G" in size_part:
@@ -131,18 +192,20 @@ def sync_vms_for_node(node_id):
                 logger.warning(f"Error syncing VM {vmid} on node {node.name}: {str(e)}")
                 continue
 
+        update_task_progress(celery_task, 60, "Fetching containers")
         lxc_data = prox.nodes(node.name).lxc.get()
+        total_lxc = len(lxc_data)
 
-        for container_data in lxc_data:
+        for idx, container_data in enumerate(lxc_data):
+            progress = 60 + int((idx / max(total_lxc, 1)) * 30)
             vmid = container_data["vmid"]
+            update_task_progress(celery_task, progress, f"Syncing container {vmid}")
 
             try:
                 container_config = prox.nodes(node.name).lxc(vmid).config.get()
                 container_status = prox.nodes(node.name).lxc(vmid).status.current.get()
 
-                # Calculate disk size from config
                 disk_gb = 0
-                # LXC containers use rootfs
                 rootfs = container_config.get("rootfs", "")
                 if isinstance(rootfs, str) and "size=" in rootfs:
                     size_part = rootfs.split("size=")[1].split(",")[0]
@@ -174,10 +237,15 @@ def sync_vms_for_node(node_id):
                 )
                 continue
 
-        return f"Successfully synced VMs for node {node.name}"
+        result = f"Successfully synced {total_vms} VMs and {total_lxc} containers for node {node.name}"
+        complete_task(celery_task, "SUCCESS", result)
+        return result
 
     except Exception as e:
         logger.error(f"Error syncing VMs for node {node_id}: {str(e)}")
+        import traceback
+
+        complete_task(celery_task, "FAILURE", str(e), traceback.format_exc())
         return f"Error syncing VMs: {str(e)}"
 
 
