@@ -4,7 +4,7 @@ This document outlines the planned features and improvements for PXMX - Proxmox 
 
 ---
 
-## Version 1.1.0 - Enhanced Monitoring ✅ COMPLETED (January 2025)
+## Version 1.1.0 - Enhanced Monitoring ✅ COMPLETED (December 2025)
 
 **Theme: Better Observability & Task Management**
 
@@ -338,5 +338,5 @@ Have thoughts on our roadmap? We'd love to hear from you!
 
 ---
 
-**Last Updated**: 2024-12-02
-**Next Review**: 2025-03-01
+**Last Updated**: 2025-12-02
+**Next Review**: 2026-03-01

@@ -173,7 +173,7 @@ This is the first version, so no migration path is needed. To start using PXMX:
 
 ---
 
-## [1.1.0] - 2025-01-02
+## [1.1.0] - 2025-12-02
 
 ### 🚀 Major Release - Enhanced Monitoring & Automation
 
@@ -302,7 +302,7 @@ None - this release is fully backward compatible with v1.0.0.
 
 ---
 
-## [1.1.1] - 2025-01-02
+## [1.1.1] - 2025-12-02
 
 ### 🔧 Minor Release - Task Tracking Infrastructure
 
