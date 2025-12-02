@@ -231,6 +231,15 @@ class RealtimeSync {
             this.updateElement('avg-cpu', data.stats.avg_cpu + '%');
             this.updateElement('avg-ram', data.stats.avg_ram + '%');
 
+            // Update sidebar stats
+            this.updateElement('sidebar-nodes', data.stats.total_nodes);
+            this.updateElement('sidebar-total-vms', data.stats.total_vms);
+            this.updateElement('sidebar-running-vms', data.stats.running_vms);
+            this.updateElement('sidebar-online', data.stats.online_nodes);
+            this.updateElement('sidebar-total', data.stats.total_nodes);
+            this.updateElement('sidebar-cpu', data.stats.avg_cpu + '%');
+            this.updateElement('sidebar-ram', data.stats.avg_ram + '%');
+
             // Update last updated indicator
             this.updateLastRefreshTime();
 

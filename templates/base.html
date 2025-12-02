@@ -80,19 +80,19 @@
             <div class="section-title">Cluster Stats</div>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">{{ clusters.count }}</div>
+                    <div class="stat-value" id="sidebar-clusters">{{ clusters.count }}</div>
                     <div class="stat-label">Clusters</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">{{ nodes.count }}</div>
+                    <div class="stat-value" id="sidebar-nodes">{{ total_nodes|default:nodes.count }}</div>
                     <div class="stat-label">Nodes</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">{{ vms.count }}</div>
+                    <div class="stat-value" id="sidebar-total-vms">{{ total_vms|default:vms.count }}</div>
                     <div class="stat-label">Total VMs</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">{{ running_vms }}</div>
+                    <div class="stat-value" id="sidebar-running-vms">{{ running_vms|default:0 }}</div>
                     <div class="stat-label">Running</div>
                 </div>
             </div>
@@ -102,19 +102,19 @@
             <div class="section-title">System Health</div>
             <div class="efficiency-grid">
                 <div class="efficiency-item">
-                    <div class="circle-progress">{{ avg_cpu|floatformat:0 }}%</div>
+                    <div class="circle-progress" id="sidebar-cpu">{{ avg_cpu|floatformat:0|default:0 }}%</div>
                     <div class="efficiency-label">CPU</div>
                 </div>
                 <div class="efficiency-item">
-                    <div class="circle-progress">{{ avg_ram|floatformat:0 }}%</div>
+                    <div class="circle-progress" id="sidebar-ram">{{ avg_ram|floatformat:0|default:0 }}%</div>
                     <div class="efficiency-label">RAM</div>
                 </div>
                 <div class="efficiency-item">
-                    <div class="circle-progress">{{ online_nodes }}</div>
+                    <div class="circle-progress" id="sidebar-online">{{ online_nodes|default:0 }}</div>
                     <div class="efficiency-label">Online</div>
                 </div>
                 <div class="efficiency-item">
-                    <div class="circle-progress">{{ total_nodes|default:0 }}</div>
+                    <div class="circle-progress" id="sidebar-total">{{ total_nodes|default:0 }}</div>
                     <div class="efficiency-label">Total</div>
                 </div>
             </div>

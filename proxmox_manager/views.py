@@ -73,9 +73,23 @@ def vm_list(request):
         if vm_type:
             vms = vms.filter(vm_type=vm_type)
 
+    # Add stats for right sidebar
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    all_vms = VirtualMachine.objects.all()
+
     context = {
         "vms": vms,
         "form": form,
+        # Stats for right sidebar
+        "clusters": clusters,
+        "nodes": nodes,
+        "total_vms": all_vms.count(),
+        "running_vms": all_vms.filter(status="running").count(),
+        "total_nodes": nodes.count(),
+        "online_nodes": nodes.filter(status="online").count(),
+        "avg_cpu": round(nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0, 2),
+        "avg_ram": round(nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0, 2),
     }
 
     return render(request, "proxmox_manager/vm_list.html", context)
@@ -179,8 +193,23 @@ def cluster_list(request):
             }
         )
 
+    # Add stats for right sidebar
+    all_clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    vms = VirtualMachine.objects.all()
+
     context = {
         "cluster_stats": cluster_stats,
+        # Stats for right sidebar
+        "clusters": all_clusters,
+        "nodes": nodes,
+        "vms": vms,
+        "total_vms": vms.count(),
+        "running_vms": vms.filter(status="running").count(),
+        "total_nodes": nodes.count(),
+        "online_nodes": nodes.filter(status="online").count(),
+        "avg_cpu": round(nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0, 2),
+        "avg_ram": round(nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0, 2),
     }
 
     return render(request, "proxmox_manager/cluster_list.html", context)
