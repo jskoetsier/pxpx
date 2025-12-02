@@ -15,7 +15,7 @@ psycopg2-binary==2.9.9
 
 # Django Extensions
 django-crispy-forms==2.1
-crispy-bootstrap5==2.0.0
+crispy-bootstrap5==2024.2
 
 # Production Server
 gunicorn==21.2.0
