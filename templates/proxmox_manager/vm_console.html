@@ -1,147 +1,284 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% load static %}
 
-{% block breadcrumb %}<a href="{% url 'vm_list' %}" style="color: var(--text-secondary); text-decoration: none;">VMs</a> / <a href="{% url 'vm_detail' vm.id %}" style="color: var(--text-secondary); text-decoration: none;">{{ vm.name }}</a> / Console{% endblock %}
-{% block page_title %}{{ vm.name }} - Console{% endblock %}
+{% block title %}Console - {{ vm.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .console-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .console-header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: white;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        z-index: 1000;
+    }
+
+    .console-info {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .vm-name {
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .vm-status {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        {% if vm.status == 'running' %}
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        {% else %}
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        {% endif %}
+    }
+
+    .console-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-console {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+
+    .btn-close {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+    }
+
+    .btn-close:hover {
+        background: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-fullscreen {
+        background: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+    }
+
+    .btn-fullscreen:hover {
+        background: rgba(59, 130, 246, 0.3);
+    }
+
+    #novnc-container {
+        flex: 1;
+        position: relative;
+        background: #000;
+    }
+
+    #noVNC_canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+    }
+
+    .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-left-color: #3b82f6;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        color: #fff;
+        margin-top: 20px;
+        font-size: 16px;
+    }
+
+    .error-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(239, 68, 68, 0.9);
+        color: white;
+        padding: 20px 40px;
+        border-radius: 12px;
+        font-size: 16px;
+        display: none;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- VM Header -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-            <i class="bi bi-{% if vm.vm_type == 'qemu' %}laptop{% else %}box{% endif %} text-white" style="font-size: 1.75rem;"></i>
-        </div>
-        <div>
-            <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0;">{{ vm.name }}</h2>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem;">
-                {{ vm.node.name }} • {{ vm.node.cluster.name }} • VMID: {{ vm.vmid }}
+<div class="console-container">
+    <div class="console-header">
+        <div class="console-info">
+            <div class="vm-name">
+                <i class="bi bi-display"></i> {{ vm.name }} (ID: {{ vm.vmid }})
+            </div>
+            <div class="vm-status">{{ vm.status|upper }}</div>
+            <div style="color: #94a3b8; font-size: 14px;">
+                {{ vm.node.name }} @ {{ vm.node.cluster.name }}
             </div>
         </div>
+        <div class="console-actions">
+            <button class="btn-console btn-fullscreen" onclick="toggleFullscreen()">
+                <i class="bi bi-arrows-fullscreen"></i> Fullscreen
+            </button>
+            <button class="btn-console btn-close" onclick="closeConsole()">
+                <i class="bi bi-x-lg"></i> Close
+            </button>
+        </div>
     </div>
-    <div style="display: flex; gap: 1rem;">
-        {% if vm.status == 'running' %}
-            <span class="badge badge-success" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Running
-            </span>
-        {% else %}
-            <span class="badge badge-warning" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> {{ vm.status|title }}
-            </span>
-        {% endif %}
-        <a href="{% url 'vm_detail' vm.id %}" style="padding: 0.5rem 1rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: var(--text-primary); text-decoration: none; font-weight: 600;">
-            <i class="bi bi-arrow-left"></i> Back to VM
-        </a>
+
+    <div id="novnc-container">
+        <div class="loading-overlay" id="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Connecting to console...</div>
+        </div>
+        <div class="error-message" id="error"></div>
     </div>
 </div>
 
-<!-- Console Container -->
-<div class="task-card" style="margin-bottom: 2rem;">
-    <div style="text-align: center; padding: 3rem;">
-        <div style="width: 80px; height: 80px; margin: 0 auto 1.5rem; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 20px; display: flex; align-items: center; justify-content: center;">
-            <i class="bi bi-terminal" style="font-size: 2.5rem; color: white;"></i>
-        </div>
+<script type="module">
+    import RFB from '/usr/share/novnc/core/rfb.js';
 
-        <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;">Console Access Methods</h3>
+    let rfb;
+    const proxmoxHost = "{{ proxmox_host }}";
+    const vncPort = {{ vnc_port }};
+    const vncTicket = "{{ vnc_ticket }}";
+    const vmType = "{{ vm_type }}";
 
-        <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
-            Choose your preferred method to access the VM console. The console connection uses a secure VNC ticket that expires after a few minutes.
-        </p>
+    // Build WebSocket URL using websockify on port 6080
+    // The ws_token format is: vmid_proxmoxhost_vncport
+    // Our custom plugin will create the SSH tunnel automatically
+    const wsToken = "{{ ws_token }}";
+    const wsUrl = `wss://${window.location.host}:6080/websockify?token=${wsToken}`;
 
-        <!-- Method 1: Direct Proxmox Console -->
-        <div style="background: rgba(139, 92, 246, 0.1); border: 2px solid rgba(139, 92, 246, 0.3); border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem; max-width: 700px; margin-left: auto; margin-right: auto;">
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="bi bi-box-arrow-up-right" style="font-size: 1.5rem; color: white;"></i>
-                </div>
-                <div style="text-align: left; flex: 1;">
-                    <div style="font-weight: 600; font-size: 1.125rem; margin-bottom: 0.25rem;">Proxmox Web Console</div>
-                    <div style="color: var(--text-secondary); font-size: 0.875rem;">Opens in new window (requires Proxmox access)</div>
-                </div>
-            </div>
-            <a href="https://{{ proxmox_host }}:8006/?console={{ vm_type }}&novnc=1&vmid={{ vmid }}&vmname={{ vm.name|urlencode }}&node={{ node_name }}&resize=scale"
-               target="_blank"
-               style="display: inline-block; padding: 1rem 2rem; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 12px; color: white; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
-                <i class="bi bi-play-circle"></i> Open Proxmox Console
-            </a>
-        </div>
+    console.log('Connecting to WebSocket:', wsUrl);
 
-        <!-- Method 2: SSH Instructions -->
-        <div style="background: rgba(34, 211, 238, 0.1); border: 2px solid rgba(34, 211, 238, 0.3); border-radius: 16px; padding: 2rem; max-width: 700px; margin-left: auto; margin-right: auto;">
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="bi bi-terminal-fill" style="font-size: 1.5rem; color: white;"></i>
-                </div>
-                <div style="text-align: left; flex: 1;">
-                    <div style="font-weight: 600; font-size: 1.125rem; margin-bottom: 0.25rem;">SSH Port Forward</div>
-                    <div style="color: var(--text-secondary); font-size: 0.875rem;">For maximum security (tunneled connection)</div>
-                </div>
-            </div>
+    function showError(message) {
+        document.getElementById('loading').style.display = 'none';
+        const errorEl = document.getElementById('error');
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+    }
 
-            <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 1rem; margin-top: 1rem; text-align: left; font-family: monospace; font-size: 0.875rem; overflow-x: auto;">
-                <div style="color: var(--text-secondary); margin-bottom: 0.5rem;"># Step 1: Create SSH tunnel</div>
-                <div style="color: var(--accent-cyan);">ssh -L {{ console_port }}:localhost:{{ console_port }} root@{{ proxmox_host }}</div>
+    function connectVNC() {
+        try {
+            // Create RFB instance
+            rfb = new RFB(document.getElementById('novnc-container'), wsUrl, {
+                credentials: {
+                    password: vncTicket
+                }
+            });
 
-                <div style="color: var(--text-secondary); margin-top: 1rem; margin-bottom: 0.5rem;"># Step 2: Access console via tunnel</div>
-                <div style="color: var(--accent-cyan);">https://localhost:{{ console_port }}/?console={{ vm_type }}&novnc=1&vmid={{ vmid }}&node={{ node_name }}&vncticket={{ console_ticket|urlencode }}</div>
-            </div>
-        </div>
-    </div>
-</div>
+            // Event handlers
+            rfb.addEventListener('connect', () => {
+                console.log('VNC connected successfully');
+                document.getElementById('loading').style.display = 'none';
+            });
 
-<!-- Console Info -->
-<div class="task-card">
-    <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">
-        <i class="bi bi-shield-check"></i> Security & Network Information
-    </h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-        <div>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">VM Type</div>
-            <div style="font-weight: 600;">{{ vm.vm_type|upper }}</div>
-        </div>
-        <div>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Console Type</div>
-            <div style="font-weight: 600;">noVNC (Browser-based)</div>
-        </div>
-        <div>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Proxmox Server</div>
-            <div style="font-weight: 600;">{{ proxmox_host }}:8006</div>
-        </div>
-        <div>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">VNC Port</div>
-            <div style="font-weight: 600;">{{ console_port }}</div>
-        </div>
-        <div>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Authentication</div>
-            <div style="font-weight: 600;">Secure Ticket (Time-Limited)</div>
-        </div>
-        <div>
-            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Node</div>
-            <div style="font-weight: 600;">{{ node_name }}</div>
-        </div>
-    </div>
+            rfb.addEventListener('disconnect', (e) => {
+                console.log('VNC disconnected:', e.detail);
+                if (e.detail.clean) {
+                    console.log('Clean disconnect');
+                } else {
+                    showError('Disconnected from console: ' + (e.detail.reason || 'Unknown error'));
+                }
+            });
 
-    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(251, 146, 60, 0.1); border-left: 3px solid var(--accent-orange); border-radius: 8px;">
-        <div style="font-weight: 600; margin-bottom: 0.5rem;">
-            <i class="bi bi-exclamation-triangle"></i> Network Requirements:
-        </div>
-        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
-            <li><strong>Direct Access:</strong> Requires your browser to reach {{ proxmox_host }}:8006</li>
-            <li><strong>Firewall:</strong> If Proxmox is firewalled, use the SSH tunnel method</li>
-            <li><strong>VPN:</strong> Connect to your network via VPN if accessing remotely</li>
-            <li><strong>Ticket Expiry:</strong> VNC tickets expire after a few minutes for security</li>
-        </ul>
-    </div>
+            rfb.addEventListener('credentialsrequired', () => {
+                console.log('Credentials required');
+                showError('Authentication required');
+            });
 
-    <div style="margin-top: 1rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--accent-blue); border-radius: 8px;">
-        <div style="font-weight: 600; margin-bottom: 0.5rem;">
-            <i class="bi bi-lightbulb"></i> Console Tips:
-        </div>
-        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
-            <li>Console opens in a new window/tab</li>
-            <li>Click inside the console to send keyboard input</li>
-            <li>Use fullscreen mode for better visibility</li>
-            <li>Refresh this page to generate a new console ticket</li>
-            <li>Right-click for clipboard options (browser dependent)</li>
-        </ul>
-    </div>
-</div>
+            rfb.addEventListener('securityfailure', (e) => {
+                console.error('Security failure:', e.detail);
+                showError('Security failure: ' + (e.detail.reason || 'Unknown error'));
+            });
+
+            // Set quality settings
+            rfb.scaleViewport = true;
+            rfb.resizeSession = true;
+            rfb.qualityLevel = 6;
+            rfb.compressionLevel = 2;
+
+        } catch (err) {
+            console.error('Failed to create VNC connection:', err);
+            showError('Failed to connect: ' + err.message);
+        }
+    }
+
+    // Connect on page load
+    window.addEventListener('DOMContentLoaded', connectVNC);
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (rfb) {
+            rfb.disconnect();
+        }
+    });
+
+    // Global functions for buttons
+    window.toggleFullscreen = function() {
+        const container = document.querySelector('.console-container');
+        if (!document.fullscreenElement) {
+            container.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    };
+
+    window.closeConsole = function() {
+        if (rfb) {
+            rfb.disconnect();
+        }
+        window.location.href = "{% url 'vm_detail' vm.id %}";
+    };
+</script>
 {% endblock %}

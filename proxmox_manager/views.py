@@ -379,20 +379,27 @@ def vm_console(request, vm_id):
         else:  # lxc
             console_data = proxmox.nodes(node_name).lxc(vm.vmid).vncproxy.post()
 
-        # Get ticket for authentication
-        ticket = console_data["ticket"]
-        port = console_data["port"]
+        # Get ticket and port for authentication
+        vnc_ticket = console_data["ticket"]
+        vnc_port = console_data["port"]
 
-        # Build console URL
-        console_url = f"https://{vm.node.cluster.api_url.replace('https://', '').split(':')[0]}:{port}/?vncticket={ticket}"
+        # Get Proxmox host IP/hostname
+        proxmox_host = (
+            vm.node.cluster.api_url.replace("https://", "")
+            .replace(":8006", "")
+            .split(":")[0]
+        )
+
+        # Create websockify token: vmid_proxmoxhost_vncport
+        # This will be used by our custom websockify plugin to create SSH tunnel
+        ws_token = f"{vm.vmid}_{proxmox_host}_{vnc_port}"
 
         context = {
             "vm": vm,
-            "console_ticket": ticket,
-            "console_port": port,
-            "proxmox_host": vm.node.cluster.api_url.replace("https://", "")
-            .replace(":8006", "")
-            .split(":")[0],
+            "vnc_ticket": vnc_ticket,
+            "vnc_port": vnc_port,
+            "proxmox_host": proxmox_host,
+            "ws_token": ws_token,
             "node_name": node_name,
             "vmid": vm.vmid,
             "vm_type": vm.vm_type,
