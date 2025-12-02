@@ -103,9 +103,24 @@ def vm_detail(request, vm_id):
         cluster=vm.node.cluster, status="online"
     ).exclude(id=vm.node.id)
 
+    # Add stats for right sidebar
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    vms = VirtualMachine.objects.all()
+
     context = {
         "vm": vm,
         "available_nodes": available_nodes,
+        # Stats for right sidebar
+        "clusters": clusters,
+        "nodes": nodes,
+        "vms": vms,
+        "total_vms": vms.count(),
+        "running_vms": vms.filter(status="running").count(),
+        "total_nodes": nodes.count(),
+        "online_nodes": nodes.filter(status="online").count(),
+        "avg_cpu": round(nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0, 2),
+        "avg_ram": round(nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0, 2),
     }
 
     return render(request, "proxmox_manager/vm_detail.html", context)
@@ -373,8 +388,23 @@ def get_dashboard_stats(request):
 def audit_log(request):
     logs = AuditLog.objects.select_related("user", "vm", "cluster").all()[:100]
 
+    # Add stats for right sidebar
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    vms = VirtualMachine.objects.all()
+
     context = {
         "logs": logs,
+        # Stats for right sidebar
+        "clusters": clusters,
+        "nodes": nodes,
+        "vms": vms,
+        "total_vms": vms.count(),
+        "running_vms": vms.filter(status="running").count(),
+        "total_nodes": nodes.count(),
+        "online_nodes": nodes.filter(status="online").count(),
+        "avg_cpu": round(nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0, 2),
+        "avg_ram": round(nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0, 2),
     }
 
     return render(request, "proxmox_manager/audit_log.html", context)
@@ -385,9 +415,23 @@ def node_detail(request, node_id):
     node = get_object_or_404(Node, id=node_id)
     vms = node.virtual_machines.all()
 
+    # Add stats for right sidebar
+    clusters = ProxmoxCluster.objects.filter(is_active=True)
+    nodes = Node.objects.all()
+    all_vms = VirtualMachine.objects.all()
+
     context = {
         "node": node,
         "vms": vms,
+        # Stats for right sidebar
+        "clusters": clusters,
+        "nodes": nodes,
+        "total_vms": all_vms.count(),
+        "running_vms": all_vms.filter(status="running").count(),
+        "total_nodes": nodes.count(),
+        "online_nodes": nodes.filter(status="online").count(),
+        "avg_cpu": round(nodes.aggregate(Avg("cpu_usage"))["cpu_usage__avg"] or 0, 2),
+        "avg_ram": round(nodes.aggregate(Avg("ram_usage"))["ram_usage__avg"] or 0, 2),
     }
 
     return render(request, "proxmox_manager/node_detail.html", context)
