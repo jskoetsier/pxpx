@@ -63,18 +63,22 @@
             <div>
                 <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Online Nodes</div>
                 <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">
-                    {% with online_nodes=nodes|selectattr:"status","equalto","online"|list %}
-                    {{ online_nodes|length|default:0 }}
+                    {% with online_count=0 %}
+                    {% for node in nodes %}
+                        {% if node.status == 'online' %}
+                            {% with online_count=online_count|add:1 %}
+                            {% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ nodes|length }}
                     {% endwith %}
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
-                    {% with online_nodes=nodes|selectattr:"status","equalto","online"|list %}
                     {% if nodes.count > 0 %}
-                        {% widthratio online_nodes|length nodes.count 100 %}% availability
+                        Online status available
                     {% else %}
                         Sync to check status
                     {% endif %}
-                    {% endwith %}
                 </div>
             </div>
             <div style="width: 48px; height: 48px; background: rgba(74, 222, 128, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
@@ -90,8 +94,14 @@
                 <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Virtual Machines</div>
                 <div style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);">{{ vms.count }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
-                    {% with running_vms=vms|selectattr:"status","equalto","running"|list %}
-                    {{ running_vms|length|default:0 }} running
+                    {% with running_count=0 %}
+                    {% for vm in vms %}
+                        {% if vm.status == 'running' %}
+                            {% with running_count=running_count|add:1 %}
+                            {% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                    Total across cluster
                     {% endwith %}
                 </div>
             </div>
