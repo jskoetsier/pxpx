@@ -15,7 +15,6 @@
 
         {% regroup vms|dictsort:"node.cluster.name" by node.cluster.name as clustered_vms %}
         {% for cluster in clustered_vms %}
-            {% if cluster.list|selectattr:"status"|selectattr:"status","equalto","running"|list %}
             <div class="task-group">
                 <div class="group-title">
                     {{ cluster.grouper }}
@@ -39,7 +38,6 @@
                     {% endif %}
                 {% endfor %}
             </div>
-            {% endif %}
         {% endfor %}
     </div>
 
@@ -51,7 +49,6 @@
         </div>
 
         {% for cluster in clustered_vms %}
-            {% if cluster.list|selectattr:"status"|selectattr:"status","equalto","stopped"|list %}
             <div class="task-group">
                 <div class="group-title">
                     {{ cluster.grouper }}
@@ -75,7 +72,6 @@
                     {% endif %}
                 {% endfor %}
             </div>
-            {% endif %}
         {% endfor %}
     </div>
 
