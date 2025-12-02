@@ -1,12 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from .forms import MigrateVMForm, SnapshotForm
+from .forms import MigrationForm, SnapshotForm, VMSearchForm
 from .models import AuditLog, CeleryTask, Node, ProxmoxCluster, VirtualMachine
 from .tasks import (
     create_snapshot,
@@ -538,8 +538,6 @@ def task_list(request):
     # Search by VM name or cluster name
     search = request.GET.get("search")
     if search:
-        from django.db.models import Q
-
         tasks = tasks.filter(
             Q(vm__name__icontains=search)
             | Q(cluster__name__icontains=search)
