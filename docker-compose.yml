@@ -32,7 +32,7 @@ services:
   web:
     build: .
     container_name: pxmx_web
-    command: gunicorn --workers 3 --bind 0.0.0.0:8000 pxmx.wsgi:application
+    command: gunicorn --workers 3 --bind 0.0.0.0:8000 --timeout 120 --access-logfile - --error-logfile - pxmx.wsgi:application
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
