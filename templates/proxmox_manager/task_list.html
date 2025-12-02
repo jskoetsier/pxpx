@@ -733,7 +733,7 @@ async function updateRunningTasks() {
     try {
         const response = await fetch('/api/tasks/running/');
         const data = await response.json();
-        
+
         data.tasks.forEach(task => {
             const taskCard = document.querySelector(`[data-task-id="${task.task_id}"]`);
             if (taskCard) {
@@ -741,7 +741,7 @@ async function updateRunningTasks() {
                 const progressFill = taskCard.querySelector('.progress-bar-fill');
                 const progressPercentage = taskCard.querySelector('.progress-percentage');
                 const progressLabel = taskCard.querySelector('.progress-label');
-                
+
                 if (progressFill) {
                     progressFill.style.width = `${task.progress}%`;
                 }
@@ -772,7 +772,7 @@ async function retryTask(taskId) {
         });
 
         const data = await response.json();
-        
+
         if (response.ok) {
             showNotification('Task retry initiated successfully', 'success');
             setTimeout(() => location.reload(), 1500);
@@ -799,7 +799,7 @@ async function cancelTask(taskId) {
         });
 
         const data = await response.json();
-        
+
         if (response.ok) {
             showNotification('Task canceled successfully', 'success');
             setTimeout(() => location.reload(), 1500);
@@ -835,44 +835,6 @@ function showNotification(message, type) {
     // Use the existing notification system from base template
     console.log(`${type}: ${message}`);
     alert(message);
-}
-
-// Start auto-refresh if there are running tasks
-if (document.querySelectorAll('.status-STARTED, .status-PENDING, .status-RETRY').length > 0) {
-    startAutoRefresh();
-}
-
-// Stop auto-refresh when navigating away
-window.addEventListener('beforeunload', stopAutoRefresh);
-</script>
-{% endblock %}
-    }
-    return cookieValue;
-}
-
-function showNotification(message, type) {
-    // Simple notification function - can be replaced with toast library
-    const bgColor = type === 'success' ? '#10b981' : '#ef4444';
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${bgColor};
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        z-index: 9999;
-        animation: slideIn 0.3s ease-out;
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
 }
 
 // Start auto-refresh when page loads
